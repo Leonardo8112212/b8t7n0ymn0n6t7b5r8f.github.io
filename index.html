@@ -1,0 +1,1278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mini Craft 3D</title>
+<style>
+  :root { --panel:rgba(0,0,0,.6); --text:#fff; }
+  html,body { margin:0; height:100%; overflow:hidden; background:#87ceeb; font-family:Arial,sans-serif; }
+  canvas { display:block; }
+  #cross { position:fixed; top:50%; left:50%; width:20px; height:20px; transform:translate(-50%,-50%); pointer-events:none; }
+  #cross:before,#cross:after { content:""; position:absolute; background:#fff; mix-blend-mode:difference; }
+  #cross:before { left:9px; top:0; width:2px; height:20px; }
+  #cross:after { top:9px; left:0; height:2px; width:20px; }
+  #hotbar { position:fixed; bottom:12px; left:50%; transform:translateX(-50%); display:flex; gap:4px; background:var(--panel); padding:6px; border-radius:6px; }
+  .slot { width:48px; height:48px; border:3px solid #555; box-sizing:border-box; position:relative; background:rgba(255,255,255,.1); }
+  .slot.sel { border-color:#fff; background:rgba(255,255,255,.3); }
+  .slot i { position:absolute; inset:8px; display:block; }
+  .slot b { position:absolute; right:2px; bottom:0; color:var(--text); font-size:13px; text-shadow:1px 1px 0 #000; }
+  .slot u { position:absolute; left:3px; top:0; color:#ddd; font-size:10px; text-decoration:none; }
+  #info { position:fixed; top:8px; left:8px; color:#fff; font-size:13px; text-shadow:1px 1px 0 #000; }
+  #start { position:fixed; inset:0; background:rgba(0,0,0,.55); display:flex; flex-direction:column; justify-content:center; align-items:center; color:var(--text); text-align:center; }
+  #hotbar { z-index:5; }
+  .invgrid { display:grid; grid-template-columns:repeat(9,48px); gap:4px; }
+  #invbox .slot { background:#888; border:3px solid #333; }
+  #invbox .slot:hover { background:#aaa; }
+  #invbox .slot.sel { border-color:#fff; }
+  #invbox .top { display:flex; gap:12px; align-items:center; margin-bottom:12px; }
+  #invbox .pv { background:#222; border:3px solid #111; padding:6px; }
+  #invbox .pos { font-size:14px; line-height:1.6; }
+  #chat { position:fixed; left:10px; bottom:80px; width:340px; display:flex; flex-direction:column; gap:2px; pointer-events:none; z-index:6; }
+  #chat .msg { background:rgba(0,0,0,.5); color:#fff; padding:3px 8px; font-size:14px; text-shadow:1px 1px 0 #000; word-break:break-word; }
+  #chat .msg.old { display:none; }
+  #chat.open .msg.old { display:block; }
+  #chatin { position:fixed; left:10px; bottom:44px; width:340px; display:none; box-sizing:border-box; padding:6px 8px; font-size:14px; background:rgba(0,0,0,.75); color:#fff; border:2px solid #aaa; z-index:6; outline:none; }
+  #menu { position:fixed; inset:0; display:none; justify-content:center; align-items:center; background:rgba(0,0,0,.5); color:#fff; z-index:4; }
+  #menu .panel { background:#444; border:4px solid #222; padding:16px; border-radius:8px; width:320px; max-height:90vh; overflow:auto; }
+  #menu button { display:block; width:100%; margin:6px 0; font-size:16px; padding:8px; cursor:pointer; background:#5a9e2f; color:#fff; border:3px solid #2d5a14; }
+  #menu button:hover { background:#6cbb38; }
+  #menu label { display:block; margin:8px 0; font-size:14px; }
+  #menu input[type=range] { width:100%; }
+  #menu input[type=text] { width:100%; box-sizing:border-box; font-size:20px; padding:6px; text-align:center; letter-spacing:4px; }
+  #menu .row { display:flex; gap:6px; align-items:center; justify-content:space-between; margin:6px 0; font-size:14px; }
+  #menu .row button { display:inline-block; width:auto; margin:0 0 0 4px; padding:4px 8px; font-size:12px; }
+  #bars { position:fixed; bottom:78px; left:50%; transform:translateX(-50%); display:flex; gap:10px; z-index:5; pointer-events:none; }
+  .bar { position:relative; width:150px; height:16px; background:rgba(0,0,0,.6); border:2px solid #222; }
+  .bar i { position:absolute; left:0; top:0; bottom:0; display:block; }
+  .bar.hp i { background:#d32f2f; } .bar.fd i { background:#e69a2e; }
+  .bar span { position:absolute; inset:0; text-align:center; font:bold 11px/16px Arial; color:#fff; text-shadow:1px 1px 0 #000; }
+  #hurt { position:fixed; inset:0; pointer-events:none; background:rgba(255,0,0,.35); opacity:0; transition:opacity .4s; z-index:5; }
+  #hack { position:fixed; inset:0; display:none; justify-content:center; align-items:center; background:rgba(0,0,0,.5); color:#fff; z-index:4; }
+  #hack .panel { background:#2a2a2a; border:4px solid #a00; padding:14px; border-radius:8px; width:560px; max-width:94vw; max-height:90vh; overflow:auto; }
+  #hack .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:4px 16px; margin:6px 0; }
+  #hack label { display:block; font-size:14px; margin:4px 0; }
+  #hack button { padding:7px; font-size:14px; cursor:pointer; background:#7a1c1c; color:#fff; border:2px solid #400; margin:3px 0; }
+  #hack button:hover { background:#a02525; }
+  canvas { touch-action:none; }
+  #mobbtn { position:fixed; top:8px; right:8px; z-index:30; width:40px; height:40px; font-size:20px; border-radius:8px; border:2px solid #fff; background:rgba(0,0,0,.55); color:#fff; cursor:pointer; padding:0; }
+  #mob { position:fixed; inset:0; z-index:25; pointer-events:none; display:none; }
+  #mob .mb { position:absolute; width:54px; height:54px; border-radius:50%; background:rgba(0,0,0,.45); border:3px solid rgba(255,255,255,.7); color:#fff; font-size:22px; display:flex; align-items:center; justify-content:center; pointer-events:auto; touch-action:none; user-select:none; -webkit-user-select:none; }
+  #mobact { position:absolute; inset:0; pointer-events:none; }
+  #joy { position:absolute; left:20px; bottom:120px; width:130px; height:130px; border-radius:50%; background:rgba(0,0,0,.3); border:3px solid rgba(255,255,255,.5); pointer-events:auto; touch-action:none; }
+  #joyk { position:absolute; left:40px; top:40px; width:50px; height:50px; border-radius:50%; background:rgba(255,255,255,.55); pointer-events:none; }
+  #bjump { right:14px; bottom:150px; } #bdown { right:14px; bottom:84px; } #bsprint { right:14px; bottom:216px; } #bmine { right:84px; bottom:112px; } #bplace { right:84px; bottom:182px; }
+  #mobmenu { position:absolute; top:56px; right:8px; display:none; flex-direction:column; gap:8px; pointer-events:none; }
+  #mobmenu .mb { position:static; width:44px; height:44px; font-size:20px; }
+  @media (max-width:640px) { .slot { width:34px; height:34px; } .slot i { inset:5px; } #hotbar { gap:2px; padding:3px; } .invgrid { grid-template-columns:repeat(9,34px); } #invbox .panel, #menu .panel { max-width:94vw; padding:10px; box-sizing:border-box; } .bar { width:120px; } #chat, #chatin { width:240px; } #start h1 { font-size:34px; } }
+  #mpcode { position:fixed; top:8px; right:56px; display:none; background:rgba(0,0,0,.65); color:#fff; padding:8px 12px; font:bold 16px monospace; border:2px solid #888; z-index:6; }
+  #held { position:fixed; width:40px; height:40px; pointer-events:none; display:none; z-index:10; }
+  #held i { position:absolute; inset:4px; display:block; border:2px solid #000; }
+  #held b { position:absolute; right:0; bottom:-4px; color:#fff; font-size:13px; text-shadow:1px 1px 0 #000; }
+  #invbox { position:fixed; inset:0; display:none; flex-direction:column; justify-content:center; align-items:center; background:rgba(0,0,0,.5); color:#fff; z-index:3; }
+  #invbox .panel { background:#444; border:4px solid #222; padding:16px; border-radius:8px; }
+  .grid { display:grid; grid-template-columns:repeat(5,90px); gap:6px; }
+  .cell { background:#666; border:3px solid #333; padding:8px 4px; text-align:center; cursor:pointer; font-size:13px; }
+  .cell:hover { border-color:#fff; }
+  .cell.empty { opacity:.4; }
+  .cell i { display:block; width:36px; height:36px; margin:0 auto 4px; border:2px solid #000; }
+  #start h1 { font-size:48px; margin:0 0 10px; text-shadow:3px 3px 0 #000; }
+  #start p { margin:4px 0; font-size:15px; }
+  #btn { margin-top:20px; font-size:26px; padding:12px 40px; background:#5a9e2f; color:#fff; border:4px solid #2d5a14; cursor:pointer; }
+  #btn:hover { background:#6cbb38; }
+</style>
+</head>
+<body>
+<div id="cross"></div>
+<div id="info"></div>
+<div id="invbox"></div>
+<div id="held"></div>
+<div id="chat"></div>
+<input id="chatin" maxlength="100" placeholder="Type a message..." autocomplete="off">
+<div id="menu"></div>
+<div id="mpcode"></div>
+<div id="hack"></div>
+<div id="bars"><div class="bar hp"><i id="hpf"></i><span id="hpt"></span></div><div class="bar fd"><i id="fdf"></i><span id="fdt"></span></div></div>
+<div id="hurt"></div>
+<button id="mobbtn" title="Mobile controls">📱</button>
+<div id="mob"><div id="mobact"><div id="joy"><div id="joyk"></div></div><div class="mb" id="bjump">⬆</div><div class="mb" id="bdown">⬇</div><div class="mb" id="bsprint">⚡</div><div class="mb" id="bmine">⛏</div><div class="mb" id="bplace">🧱</div></div><div id="mobmenu"><div class="mb" id="bmenu">⚙</div><div class="mb" id="binv">🎒</div><div class="mb" id="bchat">💬</div><div class="mb" id="bhack">🛠</div></div></div>
+<div id="hotbar"></div>
+<div id="start">
+  <h1>MINI CRAFT 3D</h1>
+  <p>World: 1000 x 1000 blocks, down to -60 (streamed chunks)</p>
+  <p>W A S D: walk &nbsp;|&nbsp; Shift: sprint &nbsp;|&nbsp; Space: jump &nbsp;|&nbsp; Mouse: look (or arrow keys)</p>
+  <p>E: inventory (left click: move stack, right click: split / place one)</p>
+  <p>T: chat &nbsp;|&nbsp; M: menu &nbsp;|&nbsp; C: crafting &nbsp;|&nbsp; F: smelting</p>
+  <p>Left click: mine &nbsp;|&nbsp; Right click: place block</p>
+  <p>Keys 1-9 or mouse wheel: choose hotbar slot</p>
+  <button id="btn">START</button>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mqtt@4.3.7/dist/mqtt.min.js"></script>
+<script>
+const N = 1000, HT = 128, DEPTH = 60, CS = 16, CN = Math.ceil(N / CS), REACH = 6;
+let R = 7;
+let topY = 90; // highest block level in use, keeps chunk meshing fast
+// ids: 0 air, 1 grass, 2 dirt, 3 stone, 4 wood, 5 leaves, 6 planks, 7 sand, 8 bedrock
+const COL = [0, 0x5aa832, 0x8b5a2b, 0x808080, 0x6b4423, 0x2e8b2e, 0xc8964f, 0xe6d690, 0x222222, 0xa0402f, 0xf4f8ff, 0xe0b030];
+const CSS = COL.map(c => '#' + c.toString(16).padStart(6, '0'));
+
+// 16x16 pixel textures, drawn into one atlas
+const TW = 16, TCOLS = 8, TROWS = 3;
+const atlas = document.createElement('canvas'); atlas.width = TCOLS * TW; atlas.height = TROWS * TW;
+const actx = atlas.getContext('2d');
+let seed = 1234; const rnd = () => (seed = seed * 16807 % 2147483647) / 2147483647;
+const px = (t, x, y, c) => { actx.fillStyle = c; actx.fillRect((t % TCOLS) * TW + x, Math.floor(t / TCOLS) * TW + y, 1, 1); };
+const rgb = (h, v) => { const f = s => Math.max(0, Math.min(255, ((h >> s) & 255) + v)) | 0; return `rgb(${f(16)},${f(8)},${f(0)})`; };
+const fill = (t, h, vari, fn) => { for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) px(t, x, y, rgb(fn ? fn(x, y) : h, (rnd() - .5) * vari)); };
+fill(0, 0x5aa832, 34);
+fill(2, 0x8b5a2b, 36);
+fill(1, 0, 36, (x, y) => y < 3 + (x * 7 % 3) ? 0x5aa832 : 0x8b5a2b);
+fill(3, 0x808080, 30);
+fill(4, 0, 24, (x, y) => x % 4 < 1 ? 0x4a2f17 : 0x6b4423);
+fill(5, 0, 20, (x, y) => { const d = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)); return d > 6.5 ? 0x4a2f17 : (Math.floor(d) % 2 ? 0xa57c45 : 0xb8935a); });
+fill(6, 0x2e8b2e, 70);
+fill(7, 0, 14, (x, y) => y % 4 === 3 ? 0x8a6330 : ((x + (y >> 2) * 5) % 8 === 0 ? 0xa87a3c : 0xc8964f));
+fill(8, 0xe6d690, 20);
+fill(9, 0x2a2a2a, 70);
+fill(10, 0, 16, (x, y) => (y % 4 === 3 || (x + (y >> 2) % 2 * 4) % 8 === 7) ? 0xc9c4b8 : 0xa0402f);
+fill(11, 0xf4f8ff, 12);
+fill(12, 0, 16, (x, y) => (x === 0 || y === 0 || x === 15 || y === 15) ? 0xfff2a0 : (x === 1 || y === 1 ? 0xf0c840 : 0xe0b030));
+[[13, 0x1a1a1a], [14, 0xd8af93], [15, 0xfcee4b], [16, 0x5decf5], [17, 0xd22020], [18, 0x2447c0]].forEach(([t, c]) => {
+  fill(t, 0x808080, 30);
+  for (let i = 0; i < 7; i++) { const x = 1 + (rnd() * 13 | 0), y = 1 + (rnd() * 13 | 0); [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([a, b]) => { if (rnd() < .8) px(t, x + a, y + b, rgb(c, (rnd() - .5) * 40)); }); }
+});
+// food item icons (porkchop, beef, mutton)
+function paintFood(t, c1, c2, bone) {
+  const ox = (t % TCOLS) * TW, oy = Math.floor(t / TCOLS) * TW;
+  actx.clearRect(ox, oy, 16, 16);
+  [[3, 5, 6], [4, 3, 10], [5, 2, 12], [6, 2, 12], [7, 2, 12], [8, 3, 10], [9, 4, 8], [10, 5, 6]].forEach(([y, x, w]) => { actx.fillStyle = c1; actx.fillRect(ox + x, oy + y, w, 1); });
+  actx.fillStyle = c2; actx.fillRect(ox + 5, oy + 5, 6, 3);
+  actx.fillStyle = bone; actx.fillRect(ox + 11, oy + 9, 3, 3); actx.fillRect(ox + 13, oy + 11, 2, 2);
+}
+paintFood(19, '#e8908f', '#f8b8b0', '#fff'); paintFood(20, '#8b2e1f', '#b24a36', '#ddd'); paintFood(21, '#c25a4a', '#e08a7a', '#fff');
+// block id -> tile (grass and wood have different top/bottom/side tiles)
+const TILE_OF = [0, 0, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 0, 0, 19, 20, 21];
+function tileOf(b, f) {
+  if (b === 28) return 4; if (b === 29) return 7; if (b === 30) return 3; if (b === 31) return 2; if (b === 32) return 7;
+  if (b === 1) return f === 2 ? 0 : f === 3 ? 2 : 1;
+  if (b === 4) return f === 2 || f === 3 ? 5 : 4;
+  return TILE_OF[b];
+}
+const atlasTex = new THREE.CanvasTexture(atlas);
+atlasTex.magFilter = THREE.NearestFilter; atlasTex.minFilter = THREE.NearestFilter; atlasTex.generateMipmaps = false;
+const ICON = {};
+for (let b = 1; b <= 22; b++) {
+  const t = tileOf(b, 0), c = document.createElement('canvas'); c.width = c.height = 16;
+  c.getContext('2d').drawImage(atlas, (t % TCOLS) * TW, Math.floor(t / TCOLS) * TW, 16, 16, 0, 0, 16, 16);
+  ICON[b] = c.toDataURL();
+}
+const ITEM_EMOJI = {23:'⚔️',24:'🪓',25:'⛏️',26:'🪏',27:'🌱',28:'📦',29:'🧰',30:'🔥',31:'🟫',32:'🟤',33:'│',34:'⚫',35:'⬜',36:'🟨',37:'💎'};
+const ico = id => id >= 23 ? ('background:linear-gradient(135deg,#ddd,#777);image-rendering:pixelated;') : ('background:url(' + ICON[id] + ') center/100% 100%;image-rendering:pixelated');
+// Sparse overrides + procedural terrain: a 2500x2500 map without allocating ~2 GB up front.
+const world = new Map();
+const idx = (x, y, z) => x + z * N + y * N * N;
+const maxWorldIndex = N * N * HT;
+function topAt(x, z) { return Math.max(62, Math.floor(71 + 2.5 * Math.sin(x * .04) + 2.5 * Math.cos(z * .035) + 1.5 * Math.sin((x + z) * .07) + Math.sin(x * .15) * Math.cos(z * .13))); }
+function hash3(x,y,z) { let n = Math.imul(x|0,374761393) + Math.imul(y|0,668265263) + Math.imul(z|0,1442695041); n = Math.imul(n ^ (n >>> 13),1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; }
+function baseBlock(x,y,z) {
+  const h = topAt(x,z);
+  if (y === 0) return 8;
+  if (y > h+6) return 0;
+  if (y > h) {
+    // Deterministic, sparse tree trunks and leaf canopies.
+    for (let tx=Math.max(2,x-2); tx<=Math.min(N-3,x+2); tx++) for (let tz=Math.max(2,z-2); tz<=Math.min(N-3,z+2); tz++) {
+      const th=topAt(tx,tz); if (th>76 || hash3(tx,0,tz)>.018) continue;
+      const height=4+(hash3(tx,1,tz)>.5?1:0), dx=Math.abs(x-tx), dz=Math.abs(z-tz), dy=y-th;
+      if (dx===0 && dz===0 && dy>=1 && dy<=height) return 4;
+      if (dy>=height-1 && dy<=height+1 && dx<=2 && dz<=2 && dx+dz<4) return 5;
+    }
+    return 0;
+  }
+  if (y === h) return h < 69 ? 7 : 1;
+  if (y > h-4) return 2;
+  const caveNoise = Math.sin(x*.035 + Math.sin(z*.04)*1.8) + Math.sin(z*.04 + Math.sin(y*.12)*1.2) + Math.sin(y*.18 + x*.02);
+  if (y > 4 && Math.abs(caveNoise) < .075) return 0;
+  // Deterministic ore specks in underground stone.
+  if (hash3(x,y,z)>.9975) return y<18?15:y<30?14:y<40?16:y<58?13:12;
+  return 3;
+}
+const get = (x, y, z) => {
+  if (x < 0 || x >= N || z < 0 || z >= N || y >= HT) return 0;
+  if (y < 0) return 8;
+  const i=idx(x,y,z); return world.has(i) ? world.get(i) : baseBlock(x,y,z);
+};
+const set = (x, y, z, v) => { if (x >= 0 && x < N && z >= 0 && z < N && y >= 0 && y < HT) world.set(idx(x,y,z), v); };
+
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+let worldSeed = Math.floor(Math.random() * 1e9);
+// the same seed always makes the same world (needed so joiners see the host's world)
+function generate(seed) {
+  // Terrain is generated lazily by baseBlock() as nearby chunks are meshed.
+  worldSeed = seed;
+}
+
+generate(worldSeed);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight);
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+scene.fog = new THREE.Fog(0x87ceeb, 45, 105);
+const camera = new THREE.PerspectiveCamera(75, innerWidth / innerHeight, .05, 130);
+camera.rotation.order = 'YXZ';
+const mat = new THREE.MeshBasicMaterial({ vertexColors: true, map: atlasTex });
+
+// chunk meshing: only exposed faces are drawn
+const FACES = [
+  { n: [1, 0, 0], v: [[1, 0, 1], [1, 0, 0], [1, 1, 0], [1, 1, 1]], s: .8 },
+  { n: [-1, 0, 0], v: [[0, 0, 0], [0, 0, 1], [0, 1, 1], [0, 1, 0]], s: .8 },
+  { n: [0, 1, 0], v: [[0, 1, 1], [1, 1, 1], [1, 1, 0], [0, 1, 0]], s: 1 },
+  { n: [0, -1, 0], v: [[0, 0, 0], [1, 0, 0], [1, 0, 1], [0, 0, 1]], s: .5 },
+  { n: [0, 0, 1], v: [[0, 0, 1], [1, 0, 1], [1, 1, 1], [0, 1, 1]], s: .7 },
+  { n: [0, 0, -1], v: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], s: .7 }
+];
+const chunks = new Map(), c3 = new THREE.Color();
+function buildChunk(cx, cz) {
+  const pos = [], colr = [], ind = [], uv = [];
+  const x0 = cx * CS, z0 = cz * CS;
+  for (let y = 0; y <= topY; y++) for (let z = z0; z < Math.min(z0 + CS, N); z++) for (let x = x0; x < Math.min(x0 + CS, N); x++) {
+    const b = get(x, y, z); if (!b) continue;
+    const vr = .9 + ((x * 7 + y * 13 + z * 5) % 5) * .025;
+    for (let f = 0; f < 6; f++) {
+      const F = FACES[f];
+      if (get(x + F.n[0], y + F.n[1], z + F.n[2])) continue;
+      const sh = F.s * vr, t = tileOf(b, f);
+      const u0 = (t % TCOLS) / TCOLS + .0005, v0 = 1 - (Math.floor(t / TCOLS) + 1) / TROWS + .0005, du = 1 / TCOLS - .001, dv = 1 / TROWS - .001;
+      const base = pos.length / 3;
+      for (let k = 0; k < 4; k++) { const v = F.v[k]; pos.push(x + v[0], y + v[1], z + v[2]); colr.push(sh, sh, sh); uv.push(u0 + (k === 1 || k === 2 ? du : 0), v0 + (k >= 2 ? dv : 0)); }
+      ind.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('color', new THREE.Float32BufferAttribute(colr, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(new THREE.BufferAttribute(new Uint32Array(ind), 1));
+  g.computeBoundingSphere();
+  const key = cx + cz * CN, old = chunks.get(key);
+  if (old) { old.geometry.dispose(); old.geometry = g; }
+  else { const m = new THREE.Mesh(g, mat); scene.add(m); chunks.set(key, m); }
+}
+function updateChunks(limit) {
+  const pcx = Math.floor(P.x / CS), pcz = Math.floor(P.z / CS), need = [];
+  for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
+    const cx = pcx + dx, cz = pcz + dz;
+    if (cx < 0 || cz < 0 || cx >= CN || cz >= CN || chunks.has(cx + cz * CN)) continue;
+    need.push([dx * dx + dz * dz, cx, cz]);
+  }
+  need.sort((a, b) => a[0] - b[0]);
+  for (let i = 0; i < Math.min(limit, need.length); i++) buildChunk(need[i][1], need[i][2]);
+  for (const [key, m] of chunks) {
+    const cx = key % CN, cz = Math.floor(key / CN);
+    if (Math.max(Math.abs(cx - pcx), Math.abs(cz - pcz)) > R + 2) { scene.remove(m); m.geometry.dispose(); chunks.delete(key); }
+  }
+}
+function dirty(x, z) {
+  const cx = Math.floor(x / CS), cz = Math.floor(z / CS);
+  const list = [[cx, cz]];
+  if (x % CS === 0) list.push([cx - 1, cz]); if (x % CS === CS - 1) list.push([cx + 1, cz]);
+  if (z % CS === 0) list.push([cx, cz - 1]); if (z % CS === CS - 1) list.push([cx, cz + 1]);
+  for (const [a, b] of list) if (chunks.has(a + b * CN)) buildChunk(a, b);
+}
+
+const hl = new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(1.01, 1.01, 1.01)), new THREE.LineBasicMaterial({ color: 0x000000 }));
+hl.visible = false; scene.add(hl);
+
+// hotbar
+const slots = new Array(36).fill(null); // 0-8 hotbar, 9-35 main inventory
+[[2, 10], [3, 10], [4, 5], [6, 10], [7, 5], [5, 5], [9, 20], [10, 20], [11, 20]].forEach(([id, n], i) => slots[i] = { id, n });
+slots[9]={id:25,n:1}; slots[10]={id:24,n:1}; slots[11]={id:26,n:1}; slots[12]={id:27,n:1}; slots[13]={id:23,n:1}; slots[14]={id:33,n:8}; slots[15]={id:34,n:8};
+let held = null, invOpen = false;
+function slotHTML(s, i, on) {
+  return `<div class="slot ${on ? 'sel' : ''}" data-i="${i}">${i < 9 ? '<u>' + (i + 1) + '</u>' : ''}${s ? `<i style="${ico(s.id)}">${ITEM_EMOJI[s.id]||''}</i>${s.n > 1 ? '<b>' + s.n + '</b>' : ''}` : ''}</div>`;
+}
+function addItem(id, n) {
+  for (const s of slots) if (s && s.id === id && s.n < 64) { const m = Math.min(64 - s.n, n); s.n += m; n -= m; if (!n) break; }
+  for (let i = 0; i < 36 && n > 0; i++) if (!slots[i]) { const m = Math.min(64, n); slots[i] = { id, n: m }; n -= m; }
+  drawHotbar();
+}
+let sel = 0;
+const hb = document.getElementById('hotbar');
+function drawHotbar() {
+  hb.innerHTML = slots.slice(0, 9).map((s, i) => slotHTML(s, i, i === sel)).join('');
+  if (invOpen) renderInv();
+}
+hb.addEventListener('click', e => { const s = e.target.closest('.slot'); if (s) { sel = +s.dataset.i; drawHotbar(); } });
+drawHotbar();
+
+// inventory screen
+const invbox = document.getElementById('invbox'), heldEl = document.getElementById('held');
+function renderHeld() {
+  heldEl.style.display = held ? 'block' : 'none';
+  if (held) heldEl.innerHTML = `<i style="${ico(held.id)}">${ITEM_EMOJI[held.id]||''}</i>${held.n > 1 ? '<b>' + held.n + '</b>' : ''}`;
+}
+addEventListener('mousemove', e => { heldEl.style.left = (e.clientX - 20) + 'px'; heldEl.style.top = (e.clientY - 20) + 'px'; });
+function drawPlayer(cv) {
+  const g = cv.getContext('2d');
+  const r = (c, x, y, w, h) => { g.fillStyle = c; g.fillRect(x, y, w, h); };
+  r('#2b2b6b', 38, 108, 20, 55); r('#2b2b6b', 62, 108, 20, 55);
+  r('#3a6fd8', 38, 52, 44, 58);
+  r('#e8b98a', 22, 52, 16, 55); r('#e8b98a', 82, 52, 16, 55);
+  r('#e8b98a', 38, 10, 44, 42); r('#5a3a1a', 38, 10, 44, 12);
+  r('#fff', 46, 30, 8, 6); r('#fff', 66, 30, 8, 6); r('#335', 50, 31, 4, 4); r('#335', 66, 31, 4, 4);
+}
+function renderInv() {
+  const row = (a, b) => slots.slice(a, b).map((s, i) => slotHTML(s, a + i, a + i === sel)).join('');
+  invbox.innerHTML = `<div class="panel"><h2 style="margin:0 0 8px">Inventory</h2>
+    <div class="top"><div class="pv"><canvas id="pv" width="120" height="170"></canvas></div>
+    <div class="pos">You<br>x ${Math.floor(P.x)}<br>y ${Math.floor(P.y) - DEPTH}<br>z ${Math.floor(P.z)}</div></div>
+    <div class="invgrid">${row(9, 36)}</div><div class="invgrid" style="margin-top:10px">${row(0, 9)}</div>
+    ${creative ? '<button id="catalogopen" style="margin-top:10px;width:100%;padding:8px">Open block & item catalogue</button>' : ''}
+    <p style="margin:8px 0 0;font-size:12px">Left click: pick up / put down &nbsp; Right click: split / place one &nbsp; E: close</p></div>`;
+  drawPlayer(document.getElementById('pv'));
+}
+invbox.addEventListener('mousedown', e => {
+  const el = e.target.closest('.slot'); if (!el) return;
+  const i = +el.dataset.i, s = slots[i];
+  if (e.button === 2) {
+    if (!held && s) { const h = Math.ceil(s.n / 2); held = { id: s.id, n: h }; s.n -= h; if (s.n <= 0) slots[i] = null; }
+    else if (held && (!s || (s.id === held.id && s.n < 64))) { if (s) s.n++; else slots[i] = { id: held.id, n: 1 }; if (--held.n <= 0) held = null; }
+  } else if (e.button === 0) {
+    if (!held) { if (s) { held = s; slots[i] = null; } }
+    else if (!s) { slots[i] = held; held = null; }
+    else if (s.id === held.id) { const m = Math.min(64 - s.n, held.n); s.n += m; held.n -= m; if (held.n <= 0) held = null; }
+    else { slots[i] = held; held = s; }
+  }
+  renderHeld(); drawHotbar();
+});
+function toggleInv() {
+  invOpen = !invOpen;
+  if (invOpen) { for (const k in keys) keys[k] = false; if (document.exitPointerLock) document.exitPointerLock(); renderInv(); invbox.style.display = 'flex'; hb.style.display = 'none'; }
+  else {
+    if (held) { addItem(held.id, held.n); held = null; renderHeld(); }
+    invbox.style.display = 'none'; hb.style.display = 'flex'; drawHotbar();
+    try { renderer.domElement.requestPointerLock(); } catch (_) {}
+  }
+}
+
+// chat + creative mode
+const chatEl = document.getElementById('chat'), chatIn = document.getElementById('chatin');
+let chatOpen = false, creative = false, flying = false, lastSpace = 0, backup = null, lastWarn = 0;
+function say(name, text) {
+  const d = document.createElement('div'); d.className = 'msg';
+  d.textContent = name + ': ' + text;
+  chatEl.appendChild(d);
+  while (chatEl.children.length > 10) chatEl.removeChild(chatEl.firstChild);
+  setTimeout(() => d.classList.add('old'), 8000);
+}
+function setCreative(on) {
+  if (on === creative) return;
+  creative = on;
+  if (on) {
+    backup = JSON.stringify(slots);
+    for (let i=0;i<36;i++) slots[i]=null;
+    [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37].forEach((id,i)=>{ if(i<36) slots[i]={id,n:64}; });
+  } else {
+    flying = false;
+    const b = JSON.parse(backup);
+    for (let i = 0; i < 36; i++) slots[i] = b[i];
+  }
+  drawHotbar();
+}
+const chestContents = new Map();
+const RECIPES = [
+  {name:'4 Planks',in:[[4,1]],out:[6,4]}, {name:'4 Sticks',in:[[6,2]],out:[33,4]},
+  {name:'Crafting table',in:[[6,4]],out:[29,1]}, {name:'Chest',in:[[6,8]],out:[28,1]},
+  {name:'Furnace',in:[[3,8]],out:[30,1]}, {name:'Wooden sword',in:[[6,2],[33,1]],out:[23,1]},
+  {name:'Wooden axe',in:[[6,3],[33,2]],out:[24,1]}, {name:'Wooden pickaxe',in:[[6,3],[33,2]],out:[25,1]},
+  {name:'Wooden shovel',in:[[6,1],[33,2]],out:[26,1]}, {name:'Wooden hoe',in:[[6,2],[33,2]],out:[27,1]},
+  {name:'Iron ingot (smelt)',in:[[13,1],[34,1]],out:[35,1],smelt:true},
+  {name:'Gold ingot (smelt)',in:[[14,1],[34,1]],out:[36,1],smelt:true},
+  {name:'Diamond sword',in:[[37,2],[33,1]],out:[23,1]},
+  {name:'Stone pickaxe',in:[[3,3],[33,2]],out:[25,1]},
+  {name:'Farmland block',in:[[2,1],[27,1]],out:[31,1]}, {name:'Path block',in:[[2,1],[26,1]],out:[32,1]}
+];
+function countItem(id) { return slots.reduce((n,s)=>n+(s&&s.id===id?s.n:0),0); }
+function takeItem(id,n) { for(let i=0;i<slots.length&&n>0;i++){const s=slots[i];if(s&&s.id===id){const k=Math.min(n,s.n);s.n-=k;n-=k;if(!s.n)slots[i]=null;}} return n===0; }
+function canCraft(r) { return r.in.every(([id,n])=>countItem(id)>=n); }
+function craftRecipe(i) { const r=RECIPES[i]; if(!r || !canCraft(r)){say('Crafting','Missing ingredients.');return;} for(const [id,n] of r.in)takeItem(id,n); addItem(r.out[0],r.out[1]); drawHotbar(); }
+let craftModeSmelt=false;
+function openCrafting(smelt=false) {
+  craftModeSmelt=smelt; invOpen=true; for(const k in keys)keys[k]=false; if(document.exitPointerLock)document.exitPointerLock();
+  const list=RECIPES.map((r,i)=>({r,i})).filter(x=>!!x.r.smelt===smelt);
+  invbox.innerHTML=`<div class="panel" style="max-width:94vw;max-height:88vh;overflow:auto"><h2>${smelt?'Furnace / Smelting':'Crafting'}</h2><p>${smelt?'Use coal and ore to smelt ingots.':'Choose a recipe to craft it from your inventory.'}</p><div class="grid">${list.map(({r,i})=>`<button data-recipe="${i}" style="min-height:66px">${r.name}<br><small>${r.in.map(([id,n])=>`${n} × ${ITEM_EMOJI[id]||('Block '+id)}`).join(', ')}</small><br>→ ${r.out[1]} × ${ITEM_EMOJI[r.out[0]]||('Block '+r.out[0])}</button>`).join('')}</div><button id="craftclose">Close (E)</button></div>`;
+  invbox.style.display='flex'; hb.style.display='none';
+}
+invbox.addEventListener('click',e=>{
+  const give=e.target.closest('[data-give-item]'); if(give){addItem(+give.dataset.giveItem,64);openCatalog();return;}
+  if(e.target.id==='catalogopen'){openCatalog();return;}
+  if(e.target.id==='catalogclose'){renderInv();return;}
+  const b=e.target.closest('[data-recipe]'); if(b){craftRecipe(+b.dataset.recipe);openCrafting(craftModeSmelt);return;}
+  if(e.target.id==='craftclose'||e.target.id==='chestclose'){invOpen=false;invbox.style.display='none';hb.style.display='flex';delete invbox.dataset.chestKey;drawHotbar();try{renderer.domElement.requestPointerLock();}catch(_){}return;}
+  if(invbox.dataset.chestKey){const key=+invbox.dataset.chestKey, data=chestContents.get(key)||[];const c=e.target.closest('[data-chest-slot]');
+    if(c){const i=+c.dataset.chestSlot;if(data[i]){addItem(data[i].id,data[i].n);data[i]=null;}openChestAt({x:key%N,y:Math.floor(key/(N*N)),z:Math.floor(key/N)%N});return;}
+    if(e.target.id==='cheststore'){const st=slots[sel];if(st){const free=data.findIndex(x=>!x);if(free>=0){data[free]={...st};slots[sel]=null;drawHotbar();}else say('Chest','Chest is full.');}openChestAt({x:key%N,y:Math.floor(key/(N*N)),z:Math.floor(key/N)%N});}
+  }
+});
+function openCatalog() {
+  invOpen=true; for(const k in keys)keys[k]=false; if(document.exitPointerLock)document.exitPointerLock();
+  const ids=[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37];
+  invbox.innerHTML=`<div class="panel" style="max-width:96vw;max-height:88vh;overflow:auto"><h2>Creative catalogue</h2><p>Choose an item to add a stack of 64 to your inventory.</p><div class="grid">${ids.map(id=>`<button data-give-item="${id}" style="min-height:58px;background:#666;color:white;border:2px solid #222">${ITEM_EMOJI[id]||('Block '+id)}<br><small>${({1:'Grass',2:'Dirt',3:'Stone',4:'Wood',5:'Leaves',6:'Planks',7:'Sand',8:'Bedrock',9:'Brick',10:'Glass',11:'Metal',12:'Coal ore',13:'Iron ore',14:'Gold ore',15:'Diamond ore',16:'Redstone ore',17:'Lapis ore',20:'Pork',21:'Beef',22:'Mutton',23:'Sword',24:'Axe',25:'Pickaxe',26:'Shovel',27:'Hoe',28:'Chest',29:'Crafting table',30:'Furnace',31:'Farmland',32:'Path',33:'Stick',34:'Coal',35:'Iron ingot',36:'Gold ingot',37:'Diamond'})[id]||('Item '+id)}</small></button>`).join('')}</div><button id="catalogclose">Close</button></div>`;
+  invbox.style.display='flex'; hb.style.display='none'; delete invbox.dataset.chestKey;
+}
+function openChestAt(h) {
+  const key=idx(h.x,h.y,h.z); if(!chestContents.has(key))chestContents.set(key,new Array(27).fill(null));
+  const data=chestContents.get(key); invOpen=true; for(const k in keys)keys[k]=false; if(document.exitPointerLock)document.exitPointerLock();
+  const chestSlots=data.map((v,i)=>`<button data-chest-slot="${i}" style="min-height:48px;background:#666;color:white;border:2px solid #222">${v?(ITEM_EMOJI[v.id]||('Block '+v.id))+' × '+v.n:'—'}</button>`).join('');
+  invbox.innerHTML=`<div class="panel" style="max-width:94vw;max-height:88vh;overflow:auto"><h2>Chest</h2><p>27 storage slots. Select a hotbar item and store its stack, or take an item from the chest.</p><div class="grid">${chestSlots}</div><button id="cheststore">Store selected hotbar stack</button><button id="chestclose">Close</button></div>`;
+  invbox.dataset.chestKey=String(key); invbox.style.display='flex'; hb.style.display='none';
+}
+
+
+function command(t) {
+  const c = t.toLowerCase();
+  if (c === '//developermode=on//') { setCreative(true); say('Server', 'Developer mode on: infinite blocks. Double-press Space to fly.'); }
+  else if (c === '//developermode=off//') { setCreative(false); say('Server', 'Developer mode off.'); }
+  else if (c === '//developerhacks=on//') { hacksOn = true; say('Server', 'Hacks unlocked. Press U to open the hack menu.'); }
+  else if (c === '//developerhacks=off//') { hacksOn = false; resetHacks(); if (hackOpen) toggleHack(); say('Server', 'Hacks disabled.'); }
+  else if (c === '/creative') setCreative(true);
+  else if (c === '/survival') setCreative(false);
+  else if (c === '/giveall') { for(let id=1;id<=37;id++) addItem(id,64); say('Server','Added the item catalogue to your inventory.'); }
+  else if (/^\/(mute|unmute|kick|ban|unban)(\s|$)/.test(c)) hostCmd(c);
+  else if (c === '/tpaccept') {
+    if (!room) say('Server', 'You are not in a multiplayer world.');
+    else if (tpaFrom) { room.emit('tp', { k: 'ok', from: tpaFrom, x: P.x, y: P.y, z: P.z }).catch(() => {}); say('Server', 'Teleport accepted.'); tpaFrom = null; }
+    else say('Server', 'No teleport request to accept.');
+  } else if (c === '/tpa' || c.startsWith('/tpa ')) {
+    if (!room) { say('Server', 'You are not in a multiplayer world.'); return; }
+    const others = room.peers().filter(p => !p.isMe && p.presence && typeof p.presence.n === 'string').map(p => p.presence.n);
+    const target = c.slice(5).trim() || (others.length === 1 ? others[0] : '');
+    if (!target) say('Server', 'Usage: /tpa <player>');
+    else if (!others.includes(target)) say('Server', 'Player not found.');
+    else { room.emit('tp', { k: 'req', from: myName, to: target }).catch(() => {}); say('Server', 'Teleport request sent to ' + target + '.'); }
+  }
+}
+function openChat() {
+  chatOpen = true;
+  for (const k in keys) keys[k] = false;
+  if (document.exitPointerLock) document.exitPointerLock();
+  chatEl.classList.add('open'); chatIn.style.display = 'block'; chatIn.value = ''; chatIn.focus();
+}
+function closeChat() {
+  chatOpen = false; chatIn.style.display = 'none'; chatIn.blur(); chatEl.classList.remove('open');
+  try { renderer.domElement.requestPointerLock(); } catch (_) {}
+}
+chatIn.addEventListener('keydown', e => {
+  e.stopPropagation();
+  if (e.key === 'Enter') { const t = chatIn.value.trim(); if (t) { if (t[0] === '/') { say(myName, t); command(t); } else sendChat(t); } closeChat(); }
+  else if (e.key === 'Escape') closeChat();
+});
+
+// ---- menu + multiplayer ----
+const menuEl = document.getElementById('menu'), codeEl = document.getElementById('mpcode');
+let menuOpen = false, menuView = 'main', dist = 90, SENS = .0025, showCoords = true, fogOn = true;
+let room = null, rooms = null, mp = null, myName = 'player1', hostPeer = null, myTok = '', roster = {}, muted = new Set(), nextNum = 1, tpaFrom = null, lastPres = 0;
+const banned = new Map(), assigned = new Map(), edits = new Map(), remote = new Map(), tmpV = new THREE.Vector3();
+function applyView() {
+  R = Math.ceil(dist / CS) + 1;
+  scene.fog.near = fogOn ? dist * .4 : 1e5; scene.fog.far = fogOn ? dist : 2e5;
+  camera.far = fogOn ? dist + 40 : 400; camera.updateProjectionMatrix();
+}
+function logEdit(x, y, z, v) { const i = idx(x, y, z); edits.set(i, v); if (room) room.emit('blk', { i, v }).catch(() => {}); }
+function applyEdits(list) {
+  const keys = new Set();
+  for (let [i, v] of list) {
+    if (!(i >= 0 && i < maxWorldIndex && v >= 0 && v <= 32)) continue;
+    i |= 0; v |= 0;
+    const x = i % N, z = Math.floor(i / N) % N, y = Math.floor(i / (N * N)), cx = Math.floor(x / CS), cz = Math.floor(z / CS);
+    set(x, y, z, v); edits.set(i, v); if (y >= topY) topY = y + 1;
+    keys.add(cx + cz * CN);
+    if (x % CS === 0 && cx > 0) keys.add(cx - 1 + cz * CN); if (x % CS === CS - 1 && cx < CN - 1) keys.add(cx + 1 + cz * CN);
+    if (z % CS === 0 && cz > 0) keys.add(cx + (cz - 1) * CN); if (z % CS === CS - 1 && cz < CN - 1) keys.add(cx + (cz + 1) * CN);
+  }
+  for (const k of keys) if (chunks.has(k)) buildChunk(k % CN, Math.floor(k / CN));
+}
+function loadWorld(seed) {
+  worldSeed = seed; world.clear(); edits.clear(); topY = 90; for (const m of mobs) scene.remove(m.g); mobs.length = 0; generate(seed);
+  for (const [, m] of chunks) { scene.remove(m); m.geometry.dispose(); } chunks.clear();
+  P.x = SX; P.z = SZ; P.y = topAt(SX, SZ) + 3; P.vy = 0; updateChunks(60);
+}
+function sendChat(t) {
+  if (muted.has(myName)) { say('Server', 'You are muted by the host.'); return; }
+  say(myName, t); if (room) room.emit('chat', { n: myName, t }).catch(() => {});
+}
+function setMsg(t) { const el = document.getElementById('jmsg'); if (el) el.textContent = t; else say('Server', t); }
+function refreshMp() {
+  codeEl.style.display = mp ? 'block' : 'none';
+  if (mp) codeEl.textContent = mp.host ? 'Code: ' + mp.code + '  |  Players: ' + (1 + Object.keys(roster).length) : (mp.ready ? 'Joined: ' + mp.code + ' as ' + myName : 'Connecting...');
+  if (menuOpen) renderMenu();
+}
+function leaveMp(msg) {
+  const r = room; room = null; mp = null; roster = {}; hostPeer = null; myName = 'player1'; muted = new Set(); tpaFrom = null;
+  if (r) r.leave().catch(() => {});
+  for (const [, a] of remote) scene.remove(a.g); remote.clear();
+  if (msg) say('Server', msg);
+  refreshMp();
+}
+function makeAvatar(name) {
+  const g = new THREE.Group();
+  const box = (w, h, d, c, x, y, z) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), new THREE.MeshBasicMaterial({ color: c })); m.position.set(x, y, z); g.add(m); };
+  box(.5, .7, .25, 0x2b2b6b, 0, .35, 0); box(.55, .75, .3, 0x3a6fd8, 0, 1.05, 0);
+  box(.45, .45, .45, 0xe8b98a, 0, 1.65, 0); box(.3, .1, .05, 0x222222, 0, 1.68, -.23);
+  const c = document.createElement('canvas'); c.width = 256; c.height = 64; const q = c.getContext('2d');
+  q.font = 'bold 36px Arial'; q.textAlign = 'center'; q.fillStyle = 'rgba(0,0,0,.55)'; q.fillRect(0, 8, 256, 48); q.fillStyle = '#fff'; q.fillText(name, 128, 46);
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), fog: false })); s.scale.set(2, .5, 1); s.position.y = 2.3; g.add(s);
+  const e = new THREE.LineSegments(espGeo, espMat); e.scale.set(.7, 1.9, .7); e.position.y = .95; e.renderOrder = 999; e.visible = false; g.add(e);
+  g.userData.esp = e; g.userData.tag = s; scene.add(g); return g;
+}
+function updateRemote() {
+  const seen = new Set();
+  if (room) for (const p of room.peers()) {
+    if (p.isMe || p.kind !== 'viewer') continue;
+    const d = p.presence;
+    if (typeof d.n !== 'string' || !Number.isFinite(d.x) || !Number.isFinite(d.y) || !Number.isFinite(d.z)) continue;
+    seen.add(p.peer);
+    let a = remote.get(p.peer);
+    if (!a || a.n !== d.n) { if (a) scene.remove(a.g); a = { n: d.n, name: d.n, g: makeAvatar(d.n.slice(0, 16)) }; remote.set(p.peer, a); a.g.position.set(d.x, d.y, d.z); }
+    a.g.position.lerp(tmpV.set(d.x, d.y, d.z), .25); a.g.rotation.y = Number.isFinite(d.yaw) ? d.yaw : 0;
+    a.g.userData.esp.visible = H.esp; a.g.userData.tag.material.depthTest = !H.esp;
+  }
+  for (const [k, a] of remote) if (!seen.has(k)) { scene.remove(a.g); remote.delete(k); }
+}
+function sendWorld(tok) {
+  const flat = []; edits.forEach((v, i) => flat.push(i, v));
+  let p = 0;
+  setTimeout(() => {
+    const t = setInterval(() => {
+      if (!room || p >= flat.length) return clearInterval(t);
+      room.emit('world', { tok, a: flat.slice(p, p + 300) }).catch(() => {}); p += 300;
+    }, 100);
+  }, 800);
+}
+function bindRoom() {
+  const on = (t, f) => room.on(t, m => { if (mp) f(m, m.data || {}); });
+  on('chat', (m, d) => {
+    if (m.sameTab || typeof d.n !== 'string' || typeof d.t !== 'string') return;
+    if (d.n === 'Server' && (mp.host || m.peer !== hostPeer)) return;
+    if (muted.has(d.n)) return;
+    say(d.n.slice(0, 16), d.t.slice(0, 100));
+  });
+  on('blk', (m, d) => { if (!m.sameTab) applyEdits([[d.i, d.v]]); });
+  on('pvp', (m,d) => { if (d && d.to===myName && typeof d.from==='string' && !m.sameTab) { hurt(Math.max(1,Math.min(8,+d.dmg||2))); say('PvP',d.from+' hit you!'); } });
+  on('join', (m, d) => {
+    if (!mp.host || m.sameTab || typeof d.tok !== 'string' || d.tok.length > 20 || assigned.has(d.tok)) return;
+    const key = m.by || m.peer;
+    if (banned.has(key)) { room.emit('deny', { tok: d.tok, why: 'You are banned from this world.' }).catch(() => {}); return; }
+    const name = 'player' + (++nextNum); assigned.set(d.tok, name); roster[name] = { peer: m.peer, key };
+    room.emit('assign', { tok: d.tok, name, seed: worldSeed, muted: [...muted] }).catch(() => {});
+    room.emit('chat', { n: 'Server', t: name + ' joined the game.' }).catch(() => {}); say('Server', name + ' joined the game.');
+    sendWorld(d.tok); refreshMp();
+  });
+  on('assign', (m, d) => {
+    if (mp.host || mp.ready || d.tok !== myTok || typeof d.name !== 'string') return;
+    hostPeer = m.peer; mp.ready = true; myName = d.name.slice(0, 16); muted = new Set(Array.isArray(d.muted) ? d.muted : []);
+    loadWorld(d.seed | 0); say('Server', 'Joined as ' + myName + '. Try /tpa to visit someone.');
+    refreshMp(); if (menuOpen) toggleMenu();
+  });
+  on('deny', (m, d) => { if (mp.host || mp.ready || d.tok !== myTok) return; leaveMp(); setMsg(String(d.why || 'Could not join.')); });
+  on('world', (m, d) => {
+    if (mp.host || m.peer !== hostPeer || d.tok !== myTok || !Array.isArray(d.a)) return;
+    const l = []; for (let i = 0; i + 1 < d.a.length; i += 2) l.push([d.a[i], d.a[i + 1]]);
+    applyEdits(l);
+  });
+  on('mod', (m, d) => {
+    if (mp.host || m.peer !== hostPeer) return;
+    if (d.k === 'mute') { if (d.on) muted.add(d.n); else muted.delete(d.n); if (d.n === myName) say('Server', d.on ? 'You were muted by the host.' : 'You were unmuted.'); }
+    else if (d.k === 'kick' && d.n === myName) leaveMp(String(d.why || 'You were kicked from the world.'));
+  });
+  on('tp', (m, d) => {
+    if (m.sameTab) return;
+    if (d.k === 'req' && d.to === myName) { tpaFrom = String(d.from); say('Server', tpaFrom + ' wants to teleport to you. Type /tpaccept to allow.'); }
+    else if (d.k === 'ok' && d.from === myName && Number.isFinite(d.x) && Number.isFinite(d.y) && Number.isFinite(d.z)) { P.x = d.x; P.y = d.y + .2; P.z = d.z; P.vy = 0; say('Server', 'Teleported!'); }
+  });
+  room.onPeers(ch => {
+    if (!mp) return;
+    if (mp.host) {
+      for (const p of ch.left) for (const n in roster) if (roster[n].peer === p.peer) {
+        delete roster[n]; room.emit('chat', { n: 'Server', t: n + ' left the game.' }).catch(() => {}); say('Server', n + ' left the game.');
+      }
+      refreshMp();
+    } else if (mp.ready && ch.left.some(p => p.peer === hostPeer)) leaveMp('The host closed the world.');
+  });
+}
+// Multiplayer without any account: PeerJS (WebRTC) with the host as the hub. Same interface as the claude.ai room.
+function peerRooms() {
+  if (typeof Peer === 'undefined') return null;
+  let uid; try { uid = localStorage.getItem('mcUid'); if (!uid) localStorage.setItem('mcUid', uid = Math.random().toString(36).slice(2, 14)); } catch (_) { uid = Math.random().toString(36).slice(2, 14); }
+  return { join(name, isHost) { return new Promise((resolve, reject) => {
+    const code = name.slice(3), handlers = {}, peerCbs = [], conns = new Map(), table = new Map();
+    const cfg = { config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:global.stun.twilio.com:3478' }, { urls: ['turn:openrelay.metered.ca:80', 'turn:openrelay.metered.ca:443', 'turn:openrelay.metered.ca:443?transport=tcp'], username: 'openrelayproject', credential: 'openrelayproject' }] } };
+    const peer = isHost ? new Peer('mcw-' + code, cfg) : new Peer(cfg);
+    let presence = {}, myId = '', hostConn = null, done = false;
+    const list = () => [...table.values()].map(e => ({ peer: e.peer, by: e.by, isMe: e.peer === myId, sameTab: e.peer === myId, kind: 'viewer', guest: false, presence: e.presence || {} }));
+    const firePeers = left => peerCbs.forEach(f => f({ left: left || [], joined: [], updated: [], peers: list() }));
+    const deliver = (p, by, topic, data) => (handlers[topic] || []).slice().forEach(f => { try { f({ peer: p, by, isMe: p === myId, sameTab: p === myId, kind: 'viewer', guest: false, topic, data }); } catch (_) {} });
+    const sendAll = (obj, except) => conns.forEach((c, id) => { if (id !== except && c.open) c.send(obj); });
+    const r = {
+      emit(topic, data) { deliver(myId, uid, topic, data); if (isHost) sendAll({ t: 'ev', peer: myId, by: uid, topic, data }); else if (hostConn && hostConn.open) hostConn.send({ t: 'ev', topic, data }); return Promise.resolve(); },
+      on(topic, f) { (handlers[topic] = handlers[topic] || []).push(f); return () => { handlers[topic] = handlers[topic].filter(x => x !== f); }; },
+      presence(patch) { for (const k in patch) { if (patch[k] === null) delete presence[k]; else presence[k] = patch[k]; } const me = table.get(myId); if (me) me.presence = presence; if (isHost) sendAll({ t: 'pres', peer: myId, p: presence }); else if (hostConn && hostConn.open) hostConn.send({ t: 'pres', p: presence }); return Promise.resolve(); },
+      peers: list,
+      onPeers(f) { peerCbs.push(f); return () => { const i = peerCbs.indexOf(f); if (i >= 0) peerCbs.splice(i, 1); }; },
+      leave() { try { peer.destroy(); } catch (_) {} return Promise.resolve(); }
+    };
+    peer.on('error', e => { if (!done) { done = true; reject(e); } });
+    if (isHost) {
+      peer.on('open', id => { myId = id; table.set(id, { peer: id, by: uid, presence }); done = true; resolve(r); });
+      peer.on('disconnected', () => { try { peer.reconnect(); } catch (_) {} });
+      peer.on('connection', c => {
+        const id = c.peer;
+        c.on('open', () => conns.set(id, c));
+        c.on('data', d => {
+          if (!d || typeof d !== 'object') return;
+          if (d.t === 'hello') { const e = { peer: id, by: String(d.uid || id).slice(0, 24), presence: {} }; table.set(id, e); c.send({ t: 'peers', list: [...table.values()] }); sendAll({ t: 'joined', e }, id); firePeers(); return; }
+          const e = table.get(id); if (!e) return;
+          if (d.t === 'ev' && typeof d.topic === 'string') { deliver(id, e.by, d.topic, d.data); sendAll({ t: 'ev', peer: id, by: e.by, topic: d.topic, data: d.data }, id); }
+          else if (d.t === 'pres' && d.p && typeof d.p === 'object') { e.presence = d.p; sendAll({ t: 'pres', peer: id, p: d.p }, id); }
+        });
+        c.on('close', () => { if (!table.has(id)) return; table.delete(id); conns.delete(id); sendAll({ t: 'left', peer: id }); firePeers([{ peer: id }]); });
+      });
+    } else {
+      peer.on('open', id => {
+        myId = id; table.set(id, { peer: id, by: uid, presence });
+        const c = hostConn = peer.connect('mcw-' + code, { reliable: true });
+        const t = setTimeout(() => { if (!done) { done = true; try { peer.destroy(); } catch (_) {} reject({ type: 'timeout' }); } }, 15000);
+        c.on('open', () => { c.send({ t: 'hello', uid }); });
+        c.on('error', e => { if (!done) { done = true; clearTimeout(t); reject({ type: 'conn', message: String(e) }); } });
+        c.on('data', d => {
+          if (!d || typeof d !== 'object') return;
+          if (d.t === 'peers' && Array.isArray(d.list)) { d.list.forEach(e => table.set(e.peer, { peer: e.peer, by: e.by, presence: e.presence || {} })); if (!done) { done = true; clearTimeout(t); resolve(r); } }
+          else if (d.t === 'joined' && d.e) table.set(d.e.peer, { peer: d.e.peer, by: d.e.by, presence: {} });
+          else if (d.t === 'ev' && typeof d.topic === 'string') deliver(d.peer, d.by, d.topic, d.data);
+          else if (d.t === 'pres' && table.has(d.peer)) table.get(d.peer).presence = d.p || {};
+          else if (d.t === 'left') { table.delete(d.peer); firePeers([{ peer: d.peer }]); }
+        });
+        c.on('close', () => firePeers([{ peer: 'mcw-' + code }]));
+      });
+    }
+  }); } };
+}
+// Multiplayer without any account or direct connection: messages are relayed through free public MQTT brokers (WebSocket).
+// It connects to several brokers at once, so it still works if one is down. Same interface as the claude.ai room.
+function busRooms() {
+  if (typeof mqtt === 'undefined') return null;
+  let uid; try { uid = localStorage.getItem('mcUid'); if (!uid) localStorage.setItem('mcUid', uid = Math.random().toString(36).slice(2, 14)); } catch (_) { uid = Math.random().toString(36).slice(2, 14); }
+  const BROKERS = ['wss://broker.emqx.io:8084/mqtt', 'wss://broker.hivemq.com:8884/mqtt', 'wss://test.mosquitto.org:8081'];
+  return { join(name, isHost) { return new Promise((resolve, reject) => {
+    const topic = 'mcw7/' + name.slice(3), myId = 'p' + Math.random().toString(36).slice(2, 10);
+    const handlers = {}, peerCbs = [], table = new Map(), seen = new Set(), clients = [], up = new Set();
+    let presence = {}, seq = 0, done = false, closed = false;
+    table.set(myId, { peer: myId, by: uid, presence, last: Date.now() });
+    const list = () => [...table.values()].map(e => ({ peer: e.peer, by: e.by, isMe: e.peer === myId, sameTab: e.peer === myId, kind: 'viewer', guest: false, presence: e.presence || {} }));
+    const firePeers = left => peerCbs.forEach(f => f({ left: left || [], joined: [], updated: [], peers: list() }));
+    const deliver = (p, by, tp, data) => (handlers[tp] || []).slice().forEach(f => { try { f({ peer: p, by, isMe: p === myId, sameTab: p === myId, kind: 'viewer', guest: false, topic: tp, data }); } catch (_) {} });
+    const pub = (obj, qos) => { obj.f = myId; obj.u = uid; obj.s = ++seq; const s = JSON.stringify(obj); for (const c of clients) if (c.connected) c.publish(topic, s, { qos }); };
+    const closeAll = () => clients.forEach(c => { try { c.end(true); } catch (_) {} });
+    const onMsg = payload => {
+      let m; try { m = JSON.parse(payload.toString()); } catch (_) { return; }
+      if (!m || typeof m.f !== 'string' || m.f === myId) return;
+      const key = m.f + ':' + m.s; if (seen.has(key)) return;
+      seen.add(key); if (seen.size > 3000) seen.delete(seen.values().next().value);
+      let e = table.get(m.f);
+      if (m.t === 'left') { if (e) { table.delete(m.f); firePeers([{ peer: m.f }]); } return; }
+      if (!e) { e = { peer: m.f, by: String(m.u || m.f).slice(0, 24), presence: {} }; table.set(m.f, e); }
+      e.last = Date.now();
+      if (m.t === 'pres' && m.p && typeof m.p === 'object') e.presence = m.p;
+      else if (m.t === 'ev' && typeof m.topic === 'string') deliver(m.f, e.by, m.topic, m.d);
+    };
+    const hb = setInterval(() => {
+      const now = Date.now();
+      for (const [id, e] of table) if (id !== myId && now - e.last > 8000) { table.delete(id); firePeers([{ peer: id }]); }
+      if (!closed) pub({ t: 'pres', p: presence }, 0);
+    }, 2000);
+    const r = {
+      emit(tp, data) { deliver(myId, uid, tp, data); pub({ t: 'ev', topic: tp, d: data }, 1); return Promise.resolve(); },
+      on(tp, f) { (handlers[tp] = handlers[tp] || []).push(f); return () => { handlers[tp] = handlers[tp].filter(x => x !== f); }; },
+      presence(patch) { for (const k in patch) { if (patch[k] === null) delete presence[k]; else presence[k] = patch[k]; } pub({ t: 'pres', p: presence }, 0); return Promise.resolve(); },
+      peers: list,
+      onPeers(f) { peerCbs.push(f); return () => { const i = peerCbs.indexOf(f); if (i >= 0) peerCbs.splice(i, 1); }; },
+      leave() { if (closed) return Promise.resolve(); pub({ t: 'left' }, 0); closed = true; clearInterval(hb); setTimeout(closeAll, 400); return Promise.resolve(); }
+    };
+    const ready = () => { if (!done && up.size) { done = true; resolve(r); pub({ t: 'pres', p: presence }, 0); } };
+    BROKERS.forEach(url => {
+      let c; try { c = mqtt.connect(url, { clientId: 'mcw_' + myId + '_' + Math.random().toString(36).slice(2, 6), clean: true, reconnectPeriod: 3000, connectTimeout: 8000, keepalive: 30 }); } catch (_) { return; }
+      clients.push(c);
+      c.on('connect', () => c.subscribe(topic, { qos: 0 }, err => {
+        if (err) return;
+        up.add(url);
+        if (up.size === 1) setTimeout(ready, 2500);
+        if (up.size === BROKERS.length) ready();
+      }));
+      c.on('message', (tp, payload) => onMsg(payload));
+      c.on('error', () => {});
+    });
+    addEventListener('beforeunload', () => { if (!closed) pub({ t: 'left' }, 0); });
+    setTimeout(() => { if (!done && !up.size) { done = true; clearInterval(hb); closeAll(); reject({ type: 'nobroker' }); } }, 9000);
+  }); } };
+}
+async function getRooms() {
+  try { if (window.claude) { const r = await claude.use('room'); if (r) return r; } } catch (_) {}
+  return busRooms();
+}
+async function hostGame() {
+  rooms = rooms || await getRooms();
+  if (!rooms) return setMsg('Multiplayer is not available here. Open the page signed in.');
+  const code = Array.from({ length: 6 }, () => 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.random() * 36 | 0]).join('');
+  try { room = await rooms.join('mc-' + code, true); } catch (e) { room = null; return setMsg('Could not start hosting.'); }
+  mp = { host: true, code, ready: true }; myName = 'player1'; roster = {}; nextNum = 1; assigned.clear(); bindRoom();
+  say('Server', 'Hosting! Share the code ' + code); refreshMp(); toggleMenu();
+}
+async function joinGame(code) {
+  if (!/^[a-z0-9]{6}$/.test(code)) return setMsg('Codes have 6 letters or numbers.');
+  rooms = rooms || await getRooms();
+  if (!rooms) return setMsg('Multiplayer is not available here. Open the page signed in.');
+  setMsg('Connecting...');
+  try { room = await rooms.join('mc-' + code, false); } catch (e) { room = null; return setMsg(e && e.type === 'nobroker' ? 'Could not reach any multiplayer server. Your network may block WebSockets - try another network.' : 'Could not connect: ' + ((e && (e.type || e.message)) || 'unknown error')); }
+  mp = { host: false, code, ready: false }; myTok = Math.random().toString(36).slice(2, 10); bindRoom(); refreshMp();
+  for (let i = 0; i < 6 && mp && !mp.ready; i++) {
+    try { await room.emit('join', { tok: myTok }); }
+    catch (e) { leaveMp(); return setMsg(e && e.code === 'not_permitted' ? 'You need Contributor access to this page to play multiplayer.' : 'Could not send the join request.'); }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+  if (mp && !mp.ready) { leaveMp(); setMsg('No world found with that code.'); }
+}
+function renderMenu() {
+  const nOthers = Object.keys(roster).length, isHost = mp && mp.host;
+  let h = '<div class="panel"><h2 style="margin:0 0 8px">Menu</h2>';
+  if (menuView === 'main') {
+    const fov = Math.round(camera.fov), sn = Math.round(SENS / .0005);
+    h += `<label>Render distance: <b id="rdv">${dist}</b> blocks<input type="range" id="rd" min="10" max="100" value="${dist}"></label>
+      <label>Field of view: <b id="fovv">${fov}</b><input type="range" id="fov" min="50" max="110" value="${fov}"></label>
+      <label>Mouse sensitivity: <b id="sensv">${sn}</b><input type="range" id="sens" min="1" max="10" value="${sn}"></label>
+      <label><input type="checkbox" id="coords" ${showCoords ? 'checked' : ''}> Show coordinates</label>
+      <label><input type="checkbox" id="fogon" ${fogOn ? 'checked' : ''}> Fog</label>
+      <button data-a="mp">Multiplayer</button>`;
+    if (isHost && (nOthers || banned.size)) h += `<button data-a="players">Players (${nOthers})</button>`;
+    h += '<button data-a="close">Resume</button>';
+  } else if (menuView === 'mp') {
+    h += '<h3 style="margin:0 0 8px">Multiplayer</h3>';
+    if (mp) h += `<p>You are <b>${myName}</b>${mp.host ? ' (host), code <b>' + mp.code + '</b>' : ''}.</p><button data-a="leave">Leave multiplayer</button>`;
+    else h += '<button data-a="host">Host</button><button data-a="joinv">Join</button>';
+    h += '<p id="jmsg" style="font-size:13px"></p><button data-a="back">Back</button>';
+  } else if (menuView === 'join') {
+    h += '<h3 style="margin:0 0 8px">Join a world</h3><p style="font-size:13px">Enter the 6-character code:</p><input type="text" id="joincode" maxlength="6" autocomplete="off"><button data-a="join">Join</button><p id="jmsg" style="font-size:13px"></p><button data-a="mp">Back</button>';
+  } else if (menuView === 'players') {
+    h += '<h3 style="margin:0 0 8px">Players</h3>';
+    for (const n in roster) h += `<div class="row"><span>${n}</span><span><button data-a="mute" data-n="${n}">${muted.has(n) ? 'Unmute' : 'Mute'}</button><button data-a="kick" data-n="${n}">Kick</button><button data-a="ban" data-n="${n}">Ban</button></span></div>`;
+    for (const [, n] of banned) h += `<div class="row"><span>${n} (banned)</span><button data-a="unban" data-n="${n}">Unban</button></div>`;
+    h += '<button data-a="back">Back</button>';
+  }
+  menuEl.innerHTML = h + '</div>';
+}
+function toggleMenu() {
+  menuOpen = !menuOpen;
+  if (menuOpen) { for (const k in keys) keys[k] = false; if (document.exitPointerLock) document.exitPointerLock(); menuView = 'main'; renderMenu(); menuEl.style.display = 'flex'; hb.style.display = 'none'; }
+  else { menuEl.style.display = 'none'; hb.style.display = 'flex'; try { renderer.domElement.requestPointerLock(); } catch (_) {} }
+}
+menuEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]'); if (!b) return;
+  const a = b.dataset.a, n = b.dataset.n;
+  if (a === 'close') toggleMenu();
+  else if (a === 'mp' || a === 'players' || a === 'joinv' || a === 'back') { menuView = a === 'joinv' ? 'join' : a === 'back' ? 'main' : a; renderMenu(); }
+  else if (a === 'host') hostGame();
+  else if (a === 'join') joinGame(document.getElementById('joincode').value.trim().toLowerCase());
+  else if (a === 'leave') { leaveMp('You left multiplayer.'); renderMenu(); }
+  else if (mp && mp.host && room) {
+    if (a === 'mute') { const on = !muted.has(n); if (on) muted.add(n); else muted.delete(n); room.emit('mod', { k: 'mute', n, on }).catch(() => {}); say('Server', n + (on ? ' was muted.' : ' was unmuted.')); }
+    else if (a === 'kick' && roster[n]) { room.emit('mod', { k: 'kick', n, why: 'You were kicked by the host.' }).catch(() => {}); delete roster[n]; say('Server', n + ' was kicked.'); }
+    else if (a === 'ban' && roster[n]) { banned.set(roster[n].key, n); room.emit('mod', { k: 'kick', n, why: 'You were banned by the host.' }).catch(() => {}); delete roster[n]; say('Server', n + ' was banned.'); }
+    else if (a === 'unban') { for (const [k, v] of banned) if (v === n) banned.delete(k); say('Server', n + ' was unbanned.'); }
+    refreshMp();
+  }
+});
+menuEl.addEventListener('input', e => {
+  const t = e.target, v = +t.value, set$ = (id, x) => { const el = document.getElementById(id); if (el) el.textContent = x; };
+  if (t.id === 'rd') { dist = v; set$('rdv', v); applyView(); }
+  else if (t.id === 'fov') { camera.fov = v; camera.updateProjectionMatrix(); set$('fovv', v); }
+  else if (t.id === 'sens') { SENS = v * .0005; set$('sensv', v); }
+  else if (t.id === 'coords') { showCoords = t.checked; document.getElementById('info').style.display = showCoords ? '' : 'none'; }
+  else if (t.id === 'fogon') { fogOn = t.checked; applyView(); }
+});
+menuEl.addEventListener('keydown', e => {
+  if (e.target.id === 'joincode') { e.stopPropagation(); if (e.key === 'Enter') joinGame(e.target.value.trim().toLowerCase()); }
+});
+applyView();
+
+// ---- survival, animals, hacks ----
+const H = { fly: false, noclip: false, nofall: false, god: false, esp: false, ores: false, aim: false, aura: false, fast: false, scaffold: false, fps: false, nightvision: false, supermine: false, autoheal: false, highjump: false, nohunger: false, mobesp: false, fullbright: false, magnet: false, rapidattack: false, speed: 1, jump: 1, reach: 0 };
+const HACKS = [['fly', 'Flight (Space up, Shift down)'], ['noclip', 'Noclip (walk through blocks)'], ['nofall', 'No fall damage'], ['god', 'God mode'], ['esp', 'Player + animal ESP'], ['mobesp', 'Animal ESP through walls'], ['ores', 'Ore ESP (see ores through walls)'], ['aim', 'Aimbot (animals + players)'], ['aura', 'Kill aura (animals nearby)'], ['fast', 'Fast mine / place (hold click)'], ['supermine', 'Instant mining'], ['scaffold', 'Scaffold (builds under you)'], ['fps', 'FPS counter'], ['nightvision', 'Night vision'], ['fullbright', 'Fullbright lighting'], ['autoheal', 'Auto-heal'], ['nohunger', 'Never get hungry'], ['highjump', 'High jump'], ['magnet', 'Item magnet (pull drops to you)'], ['rapidattack', 'Rapid animal attacks']];
+let hacksOn = false, hackOpen = false, mouse0 = false, mouse2 = false, fpsN = 0, fpsT = 0, fps = 0, auraT = 0, fastT = 0, oreT = 0, spawnT = 0;
+let hp = 20, food = 20, foodT = 0, regenT = 0, peakY = 0;
+const hackEl = document.getElementById('hack'), hurtEl = document.getElementById('hurt');
+const hpf = document.getElementById('hpf'), hpt = document.getElementById('hpt'), fdf = document.getElementById('fdf'), fdt = document.getElementById('fdt');
+const espGeo = new THREE.EdgesGeometry(new THREE.BoxGeometry(1, 1, 1)), espMat = new THREE.LineBasicMaterial({ color: 0xff3030, depthTest: false });
+const reachDist = () => Math.max(creative ? 50 : REACH, H.reach);
+function hud() { hpf.style.width = hp * 5 + '%'; hpt.textContent = '\u2764 ' + Math.ceil(hp) + '/20'; fdf.style.width = food * 5 + '%'; fdt.textContent = '\uD83C\uDF56 ' + Math.ceil(food) + '/20'; }
+function hurt(n) {
+  if (creative || H.god || n <= 0) return;
+  hp -= n; hurtEl.style.opacity = 1; setTimeout(() => hurtEl.style.opacity = 0, 150);
+  if (hp <= 0) die();
+  hud();
+}
+function die() {
+  hp = 20; food = 20; P.x = SX; P.z = SZ; P.y = topAt(SX, SZ) + 3; P.vy = 0; peakY = P.y; flying = false;
+  say('Server', 'You died! Respawning at spawn.'); hud();
+}
+function survivalTick(dt) {
+  if (creative) { if (hp < 20 || food < 20) { hp = 20; food = 20; hud(); } return; }
+  const moving = keys.w || keys.a || keys.s || keys.d;
+  foodT += dt * (keys.shift && moving ? 2.5 : 1);
+  if (foodT > 30) { foodT = 0; if (food > 0) { food--; hud(); } }
+  regenT += dt;
+  if (regenT > 4) { regenT = 0; if (food >= 18 && hp < 20) { hp++; hud(); } else if (food <= 0 && hp > 1) hurt(1); }
+}
+const FOOD = { 20: 4, 21: 5, 22: 3 };
+function eatHeld() {
+  const st = slots[sel];
+  if (food >= 20) { say('Server', 'You are not hungry.'); return; }
+  food = Math.min(20, food + FOOD[st.id]);
+  if (!creative && --st.n <= 0) slots[sel] = null;
+  drawHotbar(); hud();
+}
+
+// animals
+const mobs = [], drops = [];
+const MOB = { pig: { hp: 8, h: .9, drop: 20 }, cow: { hp: 10, h: 1.4, drop: 21 }, sheep: { hp: 8, h: 1.2, drop: 22 } };
+const MODELS = {
+  pig: [[.6, .5, .9, 0xf0a0a8, 0, .55, 0], [.45, .4, .4, 0xf4b0b6, 0, .7, -.6], [.2, .15, .1, 0xd07880, 0, .65, -.83], [.16, .3, .16, 0xe08890, -.2, .15, -.3], [.16, .3, .16, 0xe08890, .2, .15, -.3], [.16, .3, .16, 0xe08890, -.2, .15, .3], [.16, .3, .16, 0xe08890, .2, .15, .3]],
+  cow: [[.7, .7, 1.1, 0x5a3a22, 0, .95, 0], [.72, .3, .4, 0xf2f2f2, 0, 1, .1], [.5, .5, .45, 0x6a4a2a, 0, 1.15, -.75], [.1, .15, .1, 0xeeeeee, -.2, 1.5, -.75], [.1, .15, .1, 0xeeeeee, .2, 1.5, -.75], [.18, .6, .18, 0x4a2e1a, -.25, .3, -.4], [.18, .6, .18, 0x4a2e1a, .25, .3, -.4], [.18, .6, .18, 0x4a2e1a, -.25, .3, .4], [.18, .6, .18, 0x4a2e1a, .25, .3, .4]],
+  sheep: [[.75, .7, 1, 0xf4f4f4, 0, .85, 0], [.4, .4, .4, 0x3a3a3a, 0, 1, -.65], [.15, .5, .15, 0x888888, -.22, .25, -.3], [.15, .5, .15, 0x888888, .22, .25, -.3], [.15, .5, .15, 0x888888, -.22, .25, .3], [.15, .5, .15, 0x888888, .22, .25, .3]]
+};
+const DROPCOL = { 20: 0xe8908f, 21: 0x8b2e1f, 22: 0xc25a4a };
+function boxHits(x, y, z, hw, h) {
+  for (let bx = Math.floor(x - hw); bx <= Math.floor(x + hw); bx++) for (let by = Math.floor(y); by <= Math.floor(y + h - .01); by++) for (let bz = Math.floor(z - hw); bz <= Math.floor(z + hw); bz++) if (get(bx, by, bz)) return true;
+  return false;
+}
+function mkMob(type, x, y, z) {
+  const grp = new THREE.Group(), def = MOB[type];
+  for (const p of MODELS[type]) { const m = new THREE.Mesh(new THREE.BoxGeometry(p[0], p[1], p[2]), new THREE.MeshBasicMaterial({ color: p[3] })); m.position.set(p[4], p[5], p[6]); grp.add(m); }
+  const e = new THREE.LineSegments(espGeo, espMat); e.scale.set(.9, def.h, 1.3); e.position.y = def.h / 2; e.renderOrder = 999; e.visible = false; grp.add(e);
+  grp.userData.esp = e; grp.position.set(x, y, z); scene.add(grp);
+  return { type, x, y, z, vy: 0, kx: 0, kz: 0, yaw: Math.random() * 6.28, hp: def.hp, g: grp, t: 0, walk: false, panic: 0, ground: false };
+}
+function trySpawn(near) {
+  const a = Math.random() * 6.283, r = near ? 3 + Math.random() * 6 : 14 + Math.random() * 36;
+  const x = Math.floor(P.x + Math.cos(a) * r), z = Math.floor(P.z + Math.sin(a) * r);
+  if (x < 2 || z < 2 || x > N - 3 || z > N - 3 || !chunks.has(Math.floor(x / CS) + Math.floor(z / CS) * CN)) return false;
+  const y = topAt(x, z);
+  if (get(x, y, z) !== 1 || get(x, y + 1, z) || get(x, y + 2, z)) return false;
+  mobs.push(mkMob(['pig', 'cow', 'sheep'][Math.random() * 3 | 0], x + .5, y + 1, z + .5)); return true;
+}
+function mkDrop(id, x, y, z) {
+  const m = new THREE.Mesh(new THREE.BoxGeometry(.3, .3, .3), new THREE.MeshBasicMaterial({ color: DROPCOL[id] }));
+  m.position.set(x, y + .3, z); scene.add(m);
+  drops.push({ g: m, id, x, y: y + .3, z, vx: (Math.random() - .5) * 2, vy: 3, vz: (Math.random() - .5) * 2, t: 0 });
+}
+function killMob(m) {
+  const i = mobs.indexOf(m); if (i < 0) return;
+  mobs.splice(i, 1); scene.remove(m.g);
+  const n = 1 + (Math.random() < .5 ? 1 : 0);
+  for (let k = 0; k < n; k++) mkDrop(MOB[m.type].drop, m.x, m.y, m.z);
+}
+function hitMob(m, dmg) {
+  const dx = m.x - P.x, dz = m.z - P.z, l = Math.hypot(dx, dz) || 1;
+  m.hp -= creative ? 100 : dmg; m.kx = dx / l * 5; m.kz = dz / l * 5; m.vy = 4.5; m.panic = 4; m.yaw = Math.atan2(-dx, -dz);
+  if (m.hp <= 0) killMob(m);
+}
+function pickMob(h) {
+  camera.getWorldDirection(dir);
+  const c = camera.position, reach = reachDist();
+  const bd = h ? Math.hypot(h.x + .5 - c.x, h.y + .5 - c.y, h.z + .5 - c.z) : 1e9;
+  let best = null;
+  for (const m of mobs) {
+    const hh = MOB[m.type].h, dx = m.x - c.x, dy = m.y + hh / 2 - c.y, dz = m.z - c.z, t = dx * dir.x + dy * dir.y + dz * dir.z;
+    if (t < 0 || t > reach || t > bd) continue;
+    if (Math.hypot(dx - dir.x * t, dy - dir.y * t, dz - dir.z * t) < Math.max(.55, hh * .55) && (!best || t < best.t)) best = { m, t };
+  }
+  return best;
+}
+function updateMobs(dt) {
+  spawnT -= dt;
+  if (spawnT <= 0 && playing) { spawnT = mobs.length < 10 ? .3 : 3; if (mobs.length < 26) trySpawn(false); }
+  for (let i = mobs.length - 1; i >= 0; i--) {
+    const m = mobs[i], h = MOB[m.type].h;
+    if (Math.hypot(m.x - P.x, m.z - P.z) > 85 || m.y < -5) { scene.remove(m.g); mobs.splice(i, 1); continue; }
+    m.t -= dt; m.panic -= dt;
+    if (m.t <= 0) { m.walk = Math.random() < .6; m.yaw += (Math.random() - .5) * 2.5; m.t = 2 + Math.random() * 4; }
+    const sp = m.panic > 0 ? 3.2 : (m.walk ? 1.1 : 0), dk = Math.max(0, 1 - 4 * dt);
+    m.kx *= dk; m.kz *= dk;
+    const nx = m.x + (-Math.sin(m.yaw) * sp + m.kx) * dt, nz = m.z + (-Math.cos(m.yaw) * sp + m.kz) * dt;
+    if (!boxHits(nx, m.y, m.z, .4, h)) m.x = nx; else if (m.ground) m.vy = 6.5;
+    if (!boxHits(m.x, m.y, nz, .4, h)) m.z = nz; else if (m.ground) m.vy = 6.5;
+    m.vy = Math.max(m.vy - 25 * dt, -30);
+    const ny = m.y + m.vy * dt;
+    if (!boxHits(m.x, ny, m.z, .4, h)) { m.y = ny; m.ground = false; } else { if (m.vy < 0) m.ground = true; m.vy = 0; }
+    m.x = Math.max(1, Math.min(N - 1, m.x)); m.z = Math.max(1, Math.min(N - 1, m.z));
+    m.g.position.set(m.x, m.y, m.z); m.g.rotation.y = m.yaw; m.g.userData.esp.visible = H.esp || H.mobesp;
+  }
+  for (let i = drops.length - 1; i >= 0; i--) {
+    const d = drops[i]; d.t += dt;
+    d.vy -= 25 * dt;
+    const ny = d.y + d.vy * dt;
+    if (boxHits(d.x, ny - .15, d.z, .15, .3)) { d.vy = 0; d.vx *= .6; d.vz *= .6; } else d.y = ny;
+    const nx = d.x + d.vx * dt, nz = d.z + d.vz * dt;
+    if (!boxHits(nx, d.y - .15, d.z, .15, .3)) d.x = nx;
+    if (!boxHits(d.x, d.y - .15, nz, .15, .3)) d.z = nz;
+    d.g.position.set(d.x, d.y, d.z); d.g.rotation.y += dt * 2;
+    if ((d.t > .6 && playing && Math.hypot(P.x - d.x, P.y + .9 - d.y, P.z - d.z) < 1.8) || d.t > 120) {
+      if (d.t <= 120) addItem(d.id, 1);
+      scene.remove(d.g); drops.splice(i, 1);
+    }
+  }
+}
+
+// hacks
+const oreGrp = new THREE.Group(); scene.add(oreGrp);
+// Herobrine: a silent watcher that periodically teleports around the player.
+const herobrine = new THREE.Group();
+const hbDark = new THREE.MeshLambertMaterial({ color: 0x38251b }); // classic dark brown hair/shoes
+const hbSkin = new THREE.MeshLambertMaterial({ color: 0xc99572 }); // warm Steve-like skin
+const hbShirt = new THREE.MeshLambertMaterial({ color: 0x1769a8 }); // bright blue shirt
+const hbPants = new THREE.MeshLambertMaterial({ color: 0x44358e }); // classic purple trousers
+const hbEye = new THREE.MeshBasicMaterial({ color: 0xffffff });
+const hbTrim = new THREE.MeshLambertMaterial({ color: 0x553522 });
+function hbPart(w,h,d,mat,x,y,z) { const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat); m.position.set(x,y,z); herobrine.add(m); return m; }
+// Classic / original Herobrine silhouette: Steve-like skin, blue shirt, purple trousers, blank white eyes.
+hbPart(.6,.6,.32,hbSkin,0,1.68,0);          // square head
+hbPart(.58,.72,.3,hbShirt,0,.98,0);         // blue torso
+hbPart(.22,.48,.23,hbShirt,-.4,1.04,0);     // sleeves
+hbPart(.22,.25,.23,hbSkin,-.4,.68,0);       // left hand
+hbPart(.22,.48,.23,hbShirt,.4,1.04,0);      // sleeves
+hbPart(.22,.25,.23,hbSkin,.4,.68,0);        // right hand
+hbPart(.25,.68,.25,hbPants,-.16,.3,0);      // legs
+hbPart(.25,.68,.25,hbPants,.16,.3,0);
+hbPart(.25,.12,.28,hbDark,-.16,-.08,-.015); // shoes
+hbPart(.25,.12,.28,hbDark,.16,-.08,-.015);
+hbPart(.13,.075,.035,hbEye,-.145,1.72,-.17); // pure white eyes
+hbPart(.13,.075,.035,hbEye,.145,1.72,-.17);
+herobrine.visible = false; scene.add(herobrine);
+let hbTimer = 4, hbStepTimer = 0, hbLastTeleport = 0;
+function teleportHerobrineNearPlayer(force = false) {
+  // Keep him a distant observer. Even the menu action places him far away, never right beside the player.
+  const a = Math.random() * Math.PI * 2, r = force ? 22 + Math.random() * 6 : 24 + Math.random() * 12;
+  const x = Math.max(2, Math.min(N - 3, Math.floor(P.x + Math.cos(a) * r)));
+  const z = Math.max(2, Math.min(N - 3, Math.floor(P.z + Math.sin(a) * r)));
+  herobrine.position.set(x + .5, topAt(x,z) + 1, z + .5);
+  herobrine.visible = true; hbLastTeleport = performance.now(); hbStepTimer = 0;
+  herobrine.lookAt(P.x, herobrine.position.y + .9, P.z);
+}
+function updateHerobrine(dt) {
+  if (!playing) return;
+  hbTimer -= dt;
+  const d = Math.hypot(herobrine.position.x - P.x, herobrine.position.z - P.z);
+  // He never walks toward the player; he only watches from afar and occasionally relocates.
+  if (!herobrine.visible || hbTimer <= 0 || d < 10 || d > 42) {
+    if (herobrine.visible && Math.random() < .55) herobrine.visible = false;
+    teleportHerobrineNearPlayer(false);
+    hbTimer = 9 + Math.random() * 10;
+  } else {
+    herobrine.lookAt(P.x, herobrine.position.y + .9, P.z);
+  }
+}
+
+const ORE_ESP = { 12: 0xaaaaaa, 13: 0xffc9a0, 14: 0xffee00, 15: 0x00ffff, 16: 0xff2020, 17: 0x3366ff }, oreMats = {};
+for (const k in ORE_ESP) oreMats[k] = new THREE.LineBasicMaterial({ color: ORE_ESP[k], depthTest: false });
+function rebuildOre() {
+  let n = 0; const px = Math.floor(P.x), py = Math.floor(P.y), pz = Math.floor(P.z);
+  for (let x = px - 14; x <= px + 14; x++) for (let y = Math.max(0, py - 14); y <= py + 14; y++) for (let z = pz - 14; z <= pz + 14; z++) {
+    const b = get(x, y, z); if (b < 12 || b > 17 || n >= 400) continue;
+    let o = oreGrp.children[n];
+    if (!o) { o = new THREE.LineSegments(espGeo, oreMats[b]); o.renderOrder = 998; oreGrp.add(o); }
+    o.material = oreMats[b]; o.position.set(x + .5, y + .5, z + .5); o.visible = true; n++;
+  }
+  for (let i = n; i < oreGrp.children.length; i++) oreGrp.children[i].visible = false;
+}
+function aimTarget() {
+  let best = null, bd = 1600; const c = camera.position;
+  const test = (x, y, z) => { const d = (x - c.x) ** 2 + (y - c.y) ** 2 + (z - c.z) ** 2; if (d < bd) { bd = d; best = [x, y, z]; } };
+  for (const m of mobs) test(m.x, m.y + MOB[m.type].h / 2, m.z);
+  for (const [, a] of remote) test(a.g.position.x, a.g.position.y + 1.2, a.g.position.z);
+  return best;
+}
+function hackTick(dt) {
+  if (H.aim) {
+    const tg = aimTarget(), c = camera.position;
+    if (tg) {
+      const dx = tg[0] - c.x, dy = tg[1] - c.y, dz = tg[2] - c.z, k = Math.min(1, dt * 12);
+      let d = Math.atan2(-dx, -dz) - P.yaw; d = Math.atan2(Math.sin(d), Math.cos(d));
+      P.yaw += d * k; P.pitch = Math.max(-1.5, Math.min(1.5, P.pitch + (Math.atan2(dy, Math.hypot(dx, dz)) - P.pitch) * k));
+    }
+  }
+  if (H.aura) { auraT -= dt; if (auraT <= 0) { auraT = .25; for (const m of [...mobs]) if (Math.hypot(m.x - P.x, m.y - P.y, m.z - P.z) < 6) { hitMob(m, 4); break; } } }
+  if (H.autoheal && !creative) { hp = Math.min(20, hp + dt * 2); food = Math.min(20, food + dt); hud(); }
+  if (H.fast || H.supermine) { fastT -= dt; if (fastT <= 0) { fastT = .06; if (mouse0) mine(); if (mouse2) place(); } }
+  if (H.scaffold) {
+    const fx = Math.floor(P.x), fy = Math.floor(P.y) - 1, fz = Math.floor(P.z), st = slots[sel];
+    if (fy >= 0 && st && st.id < 20 && get(fx, fy, fz) === 0) {
+      set(fx, fy, fz, st.id); logEdit(fx, fy, fz, st.id); dirty(fx, fz);
+      if (!creative && --st.n <= 0) slots[sel] = null;
+      drawHotbar();
+    }
+  }
+  if (H.nohunger && !creative) { food = 20; hud(); }
+  if (H.magnet) for (const d of drops) { const dx=P.x-d.x, dy=P.y+.7-d.y, dz=P.z-d.z, l=Math.hypot(dx,dy,dz)||1; if(l<12){d.vx += dx/l*dt*10; d.vy += dy/l*dt*10; d.vz += dz/l*dt*10;} }
+  if (H.rapidattack) { auraT -= dt; if(auraT<=0){auraT=.12; for(const m of [...mobs]) if(Math.hypot(m.x-P.x,m.y-P.y,m.z-P.z)<3.2){hitMob(m,8);break;}} }
+  oreGrp.visible = H.ores; if (H.nightvision || H.fullbright) { scene.background.set(0x17243b); if (scene.fog) scene.fog.color.set(0x17243b); } else { scene.background.set(0x87ceeb); if (scene.fog) scene.fog.color.set(0x87ceeb); }
+  if (H.ores) { oreT -= dt; if (oreT <= 0) { oreT = .6; rebuildOre(); } }
+}
+function resetHacks() { for (const k in H) H[k] = typeof H[k] === 'boolean' ? false : (k === 'reach' ? 0 : 1); flying = creative ? flying : false; oreGrp.visible = false; }
+function renderHack() {
+  let h = '<div class="panel"><h2 style="margin:0 0 8px;color:#f55">Hack menu</h2><div class="grid2">';
+  for (const [k, l] of HACKS) h += `<label><input type="checkbox" data-h="${k}" ${H[k] ? 'checked' : ''}> ${l}</label>`;
+  h += '</div>';
+  [['speed', 'Speed', 1, 5, .5], ['jump', 'Jump boost', 1, 3, .25], ['reach', 'Reach (0 = default)', 0, 100, 1]].forEach(([k, l, mn, mx, st]) => h += `<label>${l}: <b id="hv_${k}">${H[k]}</b><input type="range" data-s="${k}" min="${mn}" max="${mx}" step="${st}" value="${H[k]}" style="width:100%"></label>`);
+  h += '<div class="grid2"><button data-b="items">Give all items</button><button data-b="heal">Heal + feed</button><button data-b="surface">Teleport to surface</button><button data-b="spawn">Teleport to spawn</button><button data-b="toplayer">Teleport to a player</button><button data-b="mobs">Spawn 5 animals</button><button data-b="kill">Kill all animals</button><button data-b="herobrine">Teleport Herobrine to me</button></div><button data-b="close" style="width:100%">Close (U)</button></div>';
+  hackEl.innerHTML = h;
+}
+function toggleHack() {
+  hackOpen = !hackOpen;
+  if (hackOpen) { for (const k in keys) keys[k] = false; if (document.exitPointerLock) document.exitPointerLock(); renderHack(); hackEl.style.display = 'flex'; hb.style.display = 'none'; }
+  else { hackEl.style.display = 'none'; hb.style.display = 'flex'; try { renderer.domElement.requestPointerLock(); } catch (_) {} }
+}
+hackEl.addEventListener('change', e => {
+  const t = e.target, k = t.dataset.h; if (!k) return;
+  H[k] = t.checked;
+  if (k === 'fly') flying = H.fly;
+  if (k === 'noclip' && H.noclip) { H.fly = true; flying = true; renderHack(); }
+});
+hackEl.addEventListener('input', e => { const t = e.target, k = t.dataset.s; if (!k) return; H[k] = +t.value; document.getElementById('hv_' + k).textContent = t.value; });
+hackEl.addEventListener('click', e => {
+  const b = e.target.closest('[data-b]'); if (!b) return;
+  const a = b.dataset.b;
+  if (a === 'close') toggleHack();
+  else if (a === 'items') { for(let id=1;id<=37;id++) addItem(id,64); say('Server','Item catalogue added.'); }
+  else if (a === 'heal') { hp = 20; food = 20; hud(); }
+  else if (a === 'surface') { let y = topY; const x = Math.floor(P.x), z = Math.floor(P.z); while (y > 0 && !get(x, y, z)) y--; P.y = y + 1.1; P.vy = 0; peakY = P.y; }
+  else if (a === 'spawn') { P.x = SX; P.z = SZ; P.y = topAt(SX, SZ) + 3; P.vy = 0; peakY = P.y; }
+  else if (a === 'toplayer') {
+    let best = null, bd = 1e9; tmpV.set(P.x, P.y, P.z);
+    for (const [, r] of remote) { const d = r.g.position.distanceTo(tmpV); if (d < bd) { bd = d; best = r; } }
+    if (best) { P.x = best.g.position.x; P.y = best.g.position.y + .2; P.z = best.g.position.z; P.vy = 0; peakY = P.y; } else say('Server', 'No other players to teleport to.');
+  }
+  else if (a === 'mobs') { let n = 0; for (let i = 0; i < 60 && n < 5; i++) if (trySpawn(true)) n++; }
+  else if (a === 'kill') for (const m of [...mobs]) killMob(m);
+  else if (a === 'herobrine') { teleportHerobrineNearPlayer(true); say('Server', 'Something is watching you...'); }
+});
+addEventListener('mouseup', e => { if (e.button === 0) mouse0 = false; if (e.button === 2) mouse2 = false; });
+function hostCmd(c) {
+  const [cmd, name] = c.slice(1).split(/\s+/);
+  if (!mp || !mp.host) { say('Server', 'Only the host can use /' + cmd + '.'); return; }
+  if (!name) { say('Server', 'Usage: /' + cmd + ' <player>'); return; }
+  if (cmd === 'unban') {
+    let f = false; for (const [k, v] of banned) if (v === name) { banned.delete(k); f = true; }
+    say('Server', f ? name + ' was unbanned.' : 'No banned player named ' + name + '.'); refreshMp(); return;
+  }
+  if (!roster[name]) { say('Server', 'Player not found.'); return; }
+  if (cmd === 'mute' || cmd === 'unmute') {
+    const on = cmd === 'mute'; if (on) muted.add(name); else muted.delete(name);
+    room.emit('mod', { k: 'mute', n: name, on }).catch(() => {}); say('Server', name + (on ? ' was muted.' : ' was unmuted.'));
+  } else {
+    if (cmd === 'ban') banned.set(roster[name].key, name);
+    room.emit('mod', { k: 'kick', n: name, why: cmd === 'ban' ? 'You were banned by the host.' : 'You were kicked by the host.' }).catch(() => {});
+    delete roster[name]; say('Server', name + (cmd === 'ban' ? ' was banned.' : ' was kicked.'));
+  }
+  refreshMp();
+}
+hud();
+
+// ---- mobile controls (tap the phone icon, top right) ----
+const mobEl = document.getElementById('mob'), mobMenu = document.getElementById('mobmenu'), mobAct = document.getElementById('mobact');
+const joyEl = document.getElementById('joy'), joyK = document.getElementById('joyk'), cvs = renderer.domElement;
+const joy = { x: 0, y: 0 };
+let mobile = false, mobSprint = false, mobHold = false, joyId = null, lookId = null, lx = 0, ly = 0;
+document.getElementById('mobbtn').addEventListener('click', () => { mobile = !mobile; mobEl.style.display = mobile ? 'block' : 'none'; mobMenu.style.display = mobile ? 'flex' : 'none'; });
+function joyMove(e) {
+  const r = joyEl.getBoundingClientRect(), max = r.width / 2 - 10;
+  let dx = e.clientX - (r.left + r.width / 2), dy = e.clientY - (r.top + r.height / 2); const m = Math.hypot(dx, dy);
+  if (m > max) { dx = dx / m * max; dy = dy / m * max; }
+  joyK.style.transform = `translate(${dx}px,${dy}px)`;
+  joy.x = Math.abs(dx) / max < .12 ? 0 : dx / max; joy.y = Math.abs(dy) / max < .12 ? 0 : -dy / max;
+}
+joyEl.addEventListener('pointerdown', e => { e.preventDefault(); joyEl.setPointerCapture(e.pointerId); joyId = e.pointerId; joyMove(e); });
+joyEl.addEventListener('pointermove', e => { if (e.pointerId === joyId) joyMove(e); });
+const joyEnd = e => { if (e.pointerId === joyId) { joyId = null; joy.x = joy.y = 0; joyK.style.transform = ''; } };
+joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd);
+function holdBtn(id, on, off) {
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => { e.preventDefault(); el.setPointerCapture(e.pointerId); on(); });
+  const end = e => { if (off) off(); };
+  el.addEventListener('pointerup', end); el.addEventListener('pointercancel', end);
+}
+holdBtn('bjump', () => { const now = performance.now(); if (creative && now - lastSpace < 300) { flying = !flying; P.vy = 0; } lastSpace = now; keys[' '] = true; }, () => { keys[' '] = false; });
+holdBtn('bdown', () => { keys.shift = true; }, () => { keys.shift = false; });
+holdBtn('bmine', () => { mobHold = true; mouse0 = true; mine(); }, () => { mobHold = false; mouse0 = false; });
+holdBtn('bplace', () => { mouse2 = true; place(); }, () => { mouse2 = false; });
+holdBtn('bsprint', () => { mobSprint = !mobSprint; document.getElementById('bsprint').style.background = mobSprint ? 'rgba(90,158,47,.85)' : ''; });
+function mobUI(w) {
+  if (!playing) return;
+  const open = { menu: menuOpen, inv: invOpen, hack: hackOpen, chat: chatOpen };
+  for (const k in open) if (open[k] && k !== w) return;
+  if (w === 'menu') toggleMenu(); else if (w === 'inv') toggleInv(); else if (w === 'hack') { if (hacksOn) toggleHack(); } else if (w === 'chat') { if (chatOpen) closeChat(); else openChat(); }
+}
+for (const [id, w] of [['bmenu', 'menu'], ['binv', 'inv'], ['bchat', 'chat'], ['bhack', 'hack']]) document.getElementById(id).addEventListener('pointerdown', e => { e.preventDefault(); mobUI(w); });
+// drag anywhere on the game view to look around
+cvs.addEventListener('pointerdown', e => { if (e.pointerType !== 'touch' || lookId !== null) return; e.preventDefault(); lookId = e.pointerId; lx = e.clientX; ly = e.clientY; cvs.setPointerCapture(e.pointerId); });
+cvs.addEventListener('pointermove', e => {
+  if (e.pointerId !== lookId) return;
+  if (playing && !invOpen && !menuOpen && !hackOpen && !chatOpen) { P.yaw -= (e.clientX - lx) * SENS * 2.4; P.pitch = Math.max(-1.5, Math.min(1.5, P.pitch - (e.clientY - ly) * SENS * 2.4)); }
+  lx = e.clientX; ly = e.clientY;
+});
+const lookEnd = e => { if (e.pointerId === lookId) lookId = null; };
+cvs.addEventListener('pointerup', lookEnd); cvs.addEventListener('pointercancel', lookEnd);
+setInterval(() => {
+  const busy = invOpen || menuOpen || hackOpen || chatOpen;
+  mobAct.style.visibility = (playing && !busy) ? 'visible' : 'hidden';
+  document.getElementById('bhack').style.display = hacksOn ? 'flex' : 'none';
+  if (mobHold && playing && !busy) mine();
+}, 250);
+
+// player
+const SX = N / 2, SZ = N / 2;
+const P = { x: SX, y: topAt(SX, SZ) + 3, z: SZ, vx: 0, vy: 0, vz: 0, yaw: 0, pitch: 0, ground: false }, HW = .3, PH = 1.8, EYE = 1.62;
+function hits(x, y, z) {
+  if (H.noclip) return false;
+  for (let bx = Math.floor(x - HW); bx <= Math.floor(x + HW); bx++)
+    for (let by = Math.floor(y); by <= Math.floor(y + PH - .01); by++)
+      for (let bz = Math.floor(z - HW); bz <= Math.floor(z + HW); bz++)
+        if (get(bx, by, bz)) return true;
+  return false;
+}
+const keys = {};
+let playing = false;
+function step(dt) {
+  peakY = (P.ground || flying) ? P.y : Math.max(peakY, P.y);
+  const f = Math.max(-1, Math.min(1, (keys.w ? 1 : 0) - (keys.s ? 1 : 0) + joy.y)), r = Math.max(-1, Math.min(1, (keys.d ? 1 : 0) - (keys.a ? 1 : 0) + joy.x));
+  if (keys.arrowleft) P.yaw += 2 * dt; if (keys.arrowright) P.yaw -= 2 * dt;
+  if (keys.arrowup) P.pitch = Math.min(1.5, P.pitch + 1.5 * dt); if (keys.arrowdown) P.pitch = Math.max(-1.5, P.pitch - 1.5 * dt);
+  const s = Math.sin(P.yaw), c = Math.cos(P.yaw), sp = (flying ? 10 : (keys.shift || mobSprint) ? 7.5 : 4.5) * H.speed;
+  P.vx = (-s * f + c * r) * sp; P.vz = (-c * f - s * r) * sp;
+  if (flying) { P.vy = ((keys[' '] ? 1 : 0) - (keys.shift ? 1 : 0)) * 8; }
+  else {
+    if (keys[' '] && P.ground) { P.vy = 8 * H.jump * (H.highjump ? 1.8 : 1); P.ground = false; }
+    P.vy = Math.max(P.vy - 25 * dt, -30);
+  }
+  let n = P.x + P.vx * dt; if (!hits(n, P.y, P.z)) P.x = n;
+  n = P.z + P.vz * dt; if (!hits(P.x, P.y, n)) P.z = n;
+  n = P.y + P.vy * dt;
+  if (!hits(P.x, n, P.z)) { P.y = n; P.ground = false; } else { if (P.vy < 0) { P.ground = true; if (!H.fly) flying = false; const fall = peakY - P.y; if (fall > 3 && !H.nofall) hurt(Math.floor(fall - 3)); peakY = P.y; } P.vy = 0; }
+  P.x = Math.max(.5, Math.min(N - .5, P.x)); P.z = Math.max(.5, Math.min(N - .5, P.z));
+  if (P.y < -10) { P.x = SX; P.z = SZ; P.y = topAt(SX, SZ) + 3; P.vy = 0; }
+  camera.position.set(P.x, P.y + EYE, P.z);
+  camera.rotation.set(P.pitch, P.yaw, 0);
+}
+
+const dir = new THREE.Vector3();
+function ray() {
+  camera.getWorldDirection(dir);
+  let px = -1, py = -1, pz = -1, has = false;
+  for (let t = 0; t < reachDist(); t += .03) {
+    const x = Math.floor(camera.position.x + dir.x * t), y = Math.floor(camera.position.y + dir.y * t), z = Math.floor(camera.position.z + dir.z * t);
+    if (x === px && y === py && z === pz) continue;
+    if (get(x, y, z)) return { x, y, z, px, py, pz, has };
+    px = x; py = y; pz = z; has = true;
+  }
+  return null;
+}
+function mine() {
+  if(room && mp) { const c=camera.position; camera.getWorldDirection(dir); for(const [peer,a] of remote){ const q=a.g.position,dx=q.x-c.x,dy=q.y+1-c.y,dz=q.z-c.z,t=dx*dir.x+dy*dir.y+dz*dir.z; if(t>0&&t<4&&Math.hypot(dx-dir.x*t,dy-dir.y*t,dz-dir.z*t)<.9){ const dmg=slots[sel]?.id===23?8:slots[sel]?.id===24?6:3; room.emit('pvp',{to:a.name||a.n||'',from:myName,dmg}).catch(()=>{}); say('PvP','Attack sent.'); return; } } }
+  const h = ray();
+  const mb = pickMob(h); if (mb) { const heldTool=slots[sel]?.id; hitMob(mb.m, heldTool===23?8:heldTool===24?6:heldTool===25?3:2); return; }
+  if (!h) return;
+  const b = get(h.x, h.y, h.z); if (b === 8) return; const tool=slots[sel]?.id; if ((b===3||b>=12&&b<=17) && tool!==25) { say('Mining','A pickaxe is best for stone and ores.'); } if ((b===4||b===5) && tool===24) { /* axe bonus */ }
+  set(h.x, h.y, h.z, 0); logEdit(h.x, h.y, h.z, 0);
+  if (!creative) addItem(b === 1 ? 2 : b===12 ? 34 : b===15 ? 37 : b, 1);
+  drawHotbar(); dirty(h.x, h.z);
+}
+function place() {
+  if (slots[sel] && slots[sel].id >= 20 && slots[sel].id <= 22) { eatHeld(); return; }
+  const h = ray(); if (!h) return;
+  const targetBlock=get(h.x,h.y,h.z), selected=slots[sel]?.id;
+  if(targetBlock===28){openChestAt(h);return;}
+  if(targetBlock===30){openCrafting(true);return;}
+  if(targetBlock===29){openCrafting(false);return;}
+  if(selected===27 && (targetBlock===2||targetBlock===1)){set(h.x,h.y,h.z,31);logEdit(h.x,h.y,h.z,31);dirty(h.x,h.z);say('Farming','Tilled soil.');return;}
+  if(selected===26 && (targetBlock===2||targetBlock===1)){set(h.x,h.y,h.z,32);logEdit(h.x,h.y,h.z,32);dirty(h.x,h.z);say('Building','Made a dirt path.');return;}
+  if (!h.has) return;
+  const st = slots[sel]; if (!st || ![1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,28,29,30,31,32].includes(st.id)) return;
+  const maxY = creative ? 250 : 24;
+  if (h.py - DEPTH > maxY) {
+    const now = performance.now();
+    if (now - lastWarn > 1500) { lastWarn = now; say('Server', 'Build limit reached! You can only build up to y=' + maxY + '.'); }
+    return;
+  }
+  if (h.py > topY) topY = h.py + 1;
+  let placedId=st.id; if(st.id===31) placedId=31; if(st.id===32) placedId=32; set(h.px, h.py, h.pz, placedId);
+  if (hits(P.x, P.y, P.z)) { set(h.px, h.py, h.pz, 0); return; }
+  logEdit(h.px, h.py, h.pz, st.id);
+  if (!creative && --st.n <= 0) slots[sel] = null;
+  drawHotbar(); dirty(h.px, h.pz);
+}
+
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase();
+  if (playing && hacksOn && !invOpen && !menuOpen && (k === 'u' || (k === 'escape' && hackOpen))) { if (!e.repeat) toggleHack(); return; }
+  if (playing && !invOpen && !hackOpen && !menuOpen && k === 'c') { e.preventDefault(); openCrafting(false); return; }
+  if (playing && !invOpen && !hackOpen && !menuOpen && k === 'f') { e.preventDefault(); openCrafting(true); return; }
+  if (playing && !invOpen && !hackOpen && (k === 'm' || (k === 'escape' && menuOpen))) { if (!e.repeat) toggleMenu(); return; }
+  if (playing && !invOpen && !menuOpen && !hackOpen && k === 't') { e.preventDefault(); openChat(); return; }
+  if (playing && !menuOpen && !hackOpen && (k === 'e' || (k === 'escape' && invOpen))) { if (!e.repeat) toggleInv(); return; }
+  if (k === ' ' && !e.repeat && creative && playing && !invOpen) { const now = performance.now(); if (now - lastSpace < 300) { flying = !flying; P.vy = 0; } lastSpace = now; }
+  keys[k] = true;
+  if (k >= '1' && k <= '9') { sel = +k - 1; drawHotbar(); }
+  if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+addEventListener('mousemove', e => {
+  if (!playing || document.pointerLockElement !== renderer.domElement) return;
+  P.yaw -= e.movementX * SENS; P.pitch = Math.max(-1.5, Math.min(1.5, P.pitch - e.movementY * SENS));
+});
+renderer.domElement.addEventListener('mousedown', e => {
+  if (!playing || invOpen || chatOpen || menuOpen || hackOpen) return;
+  if (document.pointerLockElement !== renderer.domElement) { try { renderer.domElement.requestPointerLock(); } catch (_) {} }
+  if (e.button === 0) { mouse0 = true; mine(); } else if (e.button === 2) { mouse2 = true; place(); }
+});
+addEventListener('contextmenu', e => e.preventDefault());
+addEventListener('wheel', e => { sel = (sel + (e.deltaY > 0 ? 1 : 8)) % 9; drawHotbar(); }, { passive: true });
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); });
+document.getElementById('btn').onclick = () => {
+  playing = true; document.getElementById('start').style.display = 'none';
+  try { renderer.domElement.requestPointerLock(); } catch (_) {}
+};
+
+updateChunks(60);
+const info = document.getElementById('info');
+let last = performance.now();
+(function loop(t) {
+  const dt = Math.min((t - last) / 1000, .05); last = t;
+  if (playing) {
+    const live = !invOpen && !chatOpen && !menuOpen && !hackOpen;
+    if (live) { hackTick(dt); step(dt); survivalTick(dt); }
+    updateMobs(dt);
+    updateHerobrine(dt);
+    fpsN++; if (t - fpsT > 500) { fps = Math.round(fpsN * 1000 / (t - fpsT)); fpsN = 0; fpsT = t; }
+    if (room && t - lastPres > 100) { lastPres = t; room.presence({ n: myName, x: +P.x.toFixed(2), y: +P.y.toFixed(2), z: +P.z.toFixed(2), yaw: +P.yaw.toFixed(2) }).catch(() => {}); }
+    updateRemote();
+    updateChunks(2);
+    const h = ray();
+    hl.visible = !!h; if (h) hl.position.set(h.x + .5, h.y + .5, h.z + .5);
+    info.textContent = 'x ' + Math.floor(P.x) + '  y ' + (Math.floor(P.y) - DEPTH) + '  z ' + Math.floor(P.z) + (creative ? (flying ? '  [CREATIVE - FLYING]' : '  [CREATIVE]') : '') + (H.fps ? '  FPS ' + fps : '');
+  } else { camera.position.set(SX, 82, SZ + 28); camera.rotation.set(-.4, 0, 0); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+})(last);
+</script>
+</body>
+</html>
